@@ -1,6 +1,6 @@
-# Provider samples are signed byte-for-byte: never convert line endings.
-reference/** -text
-practical/src/test/resources/** -text
 * text=auto eol=lf
 *.cmd text eol=crlf
 *.bat text eol=crlf
+# Provider samples are signed byte-for-byte: never convert their line endings.
+reference/** -text
+practical/src/test/resources/** -text
