@@ -21,8 +21,8 @@ The full list of behaviours and tests is in [Behaviour](#behaviour-what-the-test
 |---|---|
 | Java | 21 (tested with Eclipse Temurin 21.0.13): records, pattern matching for `switch`, **virtual threads** |
 | Spring Boot | 3.5.16 (web, actuator/Micrometer), structured JSON logs (ECS) |
-| Build | Maven 3.9.9 through the Maven Wrapper (`mvnw`) |
-| Tests | JUnit 5, AssertJ, Mockito, Spring MockMvc, **ArchUnit 1.4.2**, networknt json-schema-validator 1.5.9 |
+| Build | Maven 3.10.1 through the Maven Wrapper (`mvnw`) |
+| Tests | JUnit 5, AssertJ, Mockito, Spring MockMvc, **ArchUnit 1.5.1**, networknt json-schema-validator 1.5.9 |
 
 Why Java instead of Mule: see [ADR-0002](../docs/adr/0002-stack-and-data-store.md). Spring Boot 3.5 keeps Jackson 2; moving to Boot 4 (Jackson 3) is a planned, separate upgrade.
 
