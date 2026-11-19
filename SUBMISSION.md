@@ -14,13 +14,15 @@
 
 | Part | Approximate time |
 |---|---|
-| A. Integration and data design | |
-| B. Integration component | |
-| C. Azure IaC and CI/CD | |
-| D. Operations | |
-| E. Code review | |
-| F. Responsible AI | |
-| **Total** | |
+| A. Integration and data design | ≈ 20 min |
+| B. Integration component | ≈ 1 h 10 min (first version, then hexagonal refactor, Chile, precedence rule, lease) |
+| C. Azure IaC and CI/CD | ≈ 10 min |
+| D. Operations | ≈ 5 min |
+| E. Code review | ≈ 5 min |
+| F. Responsible AI | ≈ 5 min |
+| **Total** | **≈ 1 h 55 min** |
+
+Elapsed working time on 2026-11-19 with Claude Code generating the drafts under my direction, matching the commit history; see [`AI_USAGE.md`](AI_USAGE.md). Time spent afterwards reviewing and studying the deliverables is not included.
 
 ## Stack
 
