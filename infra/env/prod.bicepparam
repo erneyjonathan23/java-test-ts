@@ -2,6 +2,7 @@ using '../main.bicep'
 
 // Non-secret, per-environment values only. Placeholder ids are replaced by the platform team's real ones.
 param environment = 'prod'
+param apiManagerCidr = '10.30.2.0/24' // placeholder: API Manager private range (A-20)
 param vnetAddressPrefix = '10.40.8.0/22'
 param logAnalyticsWorkspaceId = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-platform-monitoring/providers/Microsoft.OperationalInsights/workspaces/log-platform-prod'
 param containerRegistryId = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-platform-shared/providers/Microsoft.ContainerRegistry/registries/meridianacr'

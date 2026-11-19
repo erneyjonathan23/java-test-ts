@@ -6,6 +6,12 @@ input:
   pathIgnore:
     - '**'
     - '!infra/env/*.bicepparam'
+# Accepted exceptions, each with its reason.
+suppression:
+  # Zone redundancy only in prod (cost); dev and test can be down for a zone outage.
+  Azure.ContainerApp.AvailabilityZone:
+    - cae-pay-dev
+    - cae-pay-test
 execution:
   # Fail the job on rule failures, not on rules that could not be evaluated.
   unprocessedObject: Ignore

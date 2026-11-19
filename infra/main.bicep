@@ -44,6 +44,9 @@ param onCallEmail string
 @description('Address space for the VNet of this environment.')
 param vnetAddressPrefix string
 
+@description('Private address range the API Manager calls from (A-20).')
+param apiManagerCidr string
+
 var isProd = environment == 'prod'
 var prefix = 'pay-${environment}'
 var tags = {
@@ -83,6 +86,11 @@ module monitoring 'modules/monitoring.bicep' = {
     countries: countries
     isProd: isProd
     serviceBusNamespaceId: serviceBus.outputs.namespaceId
+    telemetryPublisherIds: [
+      identities.outputs.intakePrincipalId
+      identities.outputs.recorderPrincipalId
+      identities.outputs.opsPrincipalId
+    ]
   }
 }
 
@@ -95,7 +103,7 @@ module keyVault 'modules/keyvault.bicep' = {
     privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
     privateDnsZoneId: network.outputs.keyVaultDnsZoneId
     logAnalyticsWorkspaceId: logAnalyticsWorkspaceId
-    secretReaders: [
+    readerPrincipalIds: [
       identities.outputs.intakePrincipalId
       identities.outputs.recorderPrincipalId
     ]
@@ -164,10 +172,12 @@ module apps 'modules/containerapps.bicep' = {
     recorderSubscriptionName: serviceBus.outputs.recorderSubscriptionName
     sqlServerFqdn: sql.outputs.serverFqdn
     sqlDatabaseName: sql.outputs.databaseName
+    apiManagerCidr: apiManagerCidr
   }
 }
 
 output intakeInternalFqdn string = apps.outputs.intakeFqdn
 output opsInternalFqdn string = apps.outputs.opsFqdn
 output keyVaultName string = keyVault.outputs.vaultName
+output salesforceEgressIp string = network.outputs.egressIpAddress
 output webhookSecretNames array = [for c in countries: '${c.provider}-webhook']

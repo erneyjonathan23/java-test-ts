@@ -9,7 +9,7 @@ param privateDnsZoneId string
 param logAnalyticsWorkspaceId string
 
 @description('Principal ids that may READ secret values (Key Vault Secrets User). Nobody gets list/write here.')
-param secretReaders array
+param readerPrincipalIds array
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: take('kv-${prefix}-${uniqueString(resourceGroup().id)}', 24)
@@ -36,7 +36,7 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 // Key Vault Secrets User: read secret values only.
 var secretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 
-resource readers 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for principalId in secretReaders: {
+resource readers 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for principalId in readerPrincipalIds: {
   name: guid(vault.id, principalId, secretsUserRoleId)
   scope: vault
   properties: {

@@ -10,6 +10,9 @@ param countries array
 param isProd bool
 param serviceBusNamespaceId string
 
+@description('Identities allowed to send telemetry (local auth is off, so they use Entra ID).')
+param telemetryPublisherIds array
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'appi-${prefix}'
   location: location
@@ -21,9 +24,22 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     IngestionMode: 'LogAnalytics'
     // Telemetry is sampled for requests only; custom metrics (freshness, outcomes) are never sampled.
     SamplingPercentage: isProd ? 50 : 100
-    DisableLocalAuth: false
+    DisableLocalAuth: true
   }
 }
+
+// Monitoring Metrics Publisher: send telemetry only.
+var metricsPublisherRoleId = '3913510d-42f4-4e42-8a64-420c390055eb'
+
+resource publishers 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for principalId in telemetryPublisherIds: {
+  name: guid(appInsights.id, principalId, metricsPublisherRoleId)
+  scope: appInsights
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', metricsPublisherRoleId)
+    principalId: principalId
+    principalType: 'ServicePrincipal'
+  }
+}]
 
 resource onCall 'Microsoft.Insights/actionGroups@2023-01-01' = {
   name: 'ag-${prefix}-oncall'
@@ -53,6 +69,7 @@ resource dlqAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
     scopes: [serviceBusNamespaceId]
     evaluationFrequency: 'PT1M'
     windowSize: 'PT5M'
+    autoMitigate: true // resolves itself when the DLQ is empty again
     criteria: {
       'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
       allOf: [

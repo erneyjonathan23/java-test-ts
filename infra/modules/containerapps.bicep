@@ -30,6 +30,9 @@ param recorderSubscriptionName string
 param sqlServerFqdn string
 param sqlDatabaseName string
 
+@description('Private address range of the API Manager, the only caller allowed in.')
+param apiManagerCidr string
+
 resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   name: 'cae-${prefix}'
   location: location
@@ -106,6 +109,20 @@ var probes = [
   }
 ]
 
+var apiManagerOnly = [
+  {
+    name: 'api-manager'
+    action: 'Allow'
+    ipAddressRange: apiManagerCidr
+  }
+]
+
+// Telemetry signs in with the managed identity (Application Insights local auth is off).
+func telemetryAuth(clientId string) object => {
+  name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING'
+  value: 'Authorization=AAD;ClientId=${clientId}'
+}
+
 resource intake 'Microsoft.App/containerApps@2025-01-01' = {
   name: 'ca-${prefix}-intake'
   location: location
@@ -126,6 +143,7 @@ resource intake 'Microsoft.App/containerApps@2025-01-01' = {
         targetPort: 8080
         transport: 'http'
         allowInsecure: false
+        ipSecurityRestrictions: apiManagerOnly
       }
       registries: [
         {
@@ -149,7 +167,7 @@ resource intake 'Microsoft.App/containerApps@2025-01-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          env: concat(commonEnv, [{ name: 'AZURE_CLIENT_ID', value: intakeClientId }])
+          env: concat(commonEnv, [{ name: 'AZURE_CLIENT_ID', value: intakeClientId }, telemetryAuth(intakeClientId)])
           probes: probes
         }
       ]
@@ -212,6 +230,7 @@ resource recorder 'Microsoft.App/containerApps@2025-01-01' = {
           }
           env: concat(commonEnv, [
             { name: 'AZURE_CLIENT_ID', value: recorderClientId }
+            telemetryAuth(recorderClientId)
             { name: 'SERVICEBUS_SUBSCRIPTION', value: recorderSubscriptionName }
             // Salesforce sync guards (ADR-0001).
             { name: 'SALESFORCE_BATCH_SIZE', value: '200' }
@@ -266,6 +285,7 @@ resource ops 'Microsoft.App/containerApps@2025-01-01' = {
         targetPort: 8080
         transport: 'http'
         allowInsecure: false
+        ipSecurityRestrictions: apiManagerOnly
       }
       registries: [
         {
@@ -289,7 +309,7 @@ resource ops 'Microsoft.App/containerApps@2025-01-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: concat(commonEnv, [{ name: 'AZURE_CLIENT_ID', value: opsClientId }])
+          env: concat(commonEnv, [{ name: 'AZURE_CLIENT_ID', value: opsClientId }, telemetryAuth(opsClientId)])
           probes: probes
         }
       ]

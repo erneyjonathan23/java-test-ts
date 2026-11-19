@@ -1,15 +1,32 @@
 # Keeps dependencies, the base image and pipeline actions patched (security fixes land as pull requests).
+# Minor and patch updates come grouped in one weekly PR; major upgrades are planned by hand.
 version: 2
 updates:
   - package-ecosystem: maven
     directory: /practical
     schedule:
       interval: weekly
+    groups:
+      maven-minor-patch:
+        patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker
     directory: /practical
     schedule:
       interval: weekly
+    ignore:
+      # Stay on Java 21 (LTS); only patch releases of the image.
+      - dependency-name: eclipse-temurin
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions-minor-patch:
+        patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']

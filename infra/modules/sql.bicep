@@ -49,6 +49,8 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
     zoneRedundant: isProd
     requestedBackupStorageRedundancy: isProd ? 'Zone' : 'Local'
     maxSizeBytes: 34359738368 // 32 GB, ~50x the 13-month estimate
+    // Planned maintenance on weekday nights, away from the month-end daytime peak.
+    maintenanceConfigurationId: subscriptionResourceId('Microsoft.Maintenance/publicMaintenanceConfigurations', 'SQL_${location}_DB_1')
   }
 }
 
@@ -67,6 +69,24 @@ resource auditing 'Microsoft.Sql/servers/auditingSettings@2023-08-01-preview' = 
     state: 'Enabled'
     isAzureMonitorTargetEnabled: true
   }
+}
+
+// Microsoft Defender for SQL: threat alerts and vulnerability scans (express setup, no storage account).
+resource defender 'Microsoft.Sql/servers/securityAlertPolicies@2023-08-01-preview' = {
+  parent: server
+  name: 'Default'
+  properties: {
+    state: 'Enabled'
+  }
+}
+
+resource vulnerabilityScan 'Microsoft.Sql/servers/sqlVulnerabilityAssessments@2023-08-01-preview' = {
+  parent: server
+  name: 'default'
+  properties: {
+    state: 'Enabled'
+  }
+  dependsOn: [defender]
 }
 
 resource master 'Microsoft.Sql/servers/databases@2023-08-01-preview' existing = {
