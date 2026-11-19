@@ -6,18 +6,9 @@ import java.util.Collection;
 import java.util.Objects;
 
 /**
- * Resolves out-of-order and duplicate notifications on <b>state</b>, not on arrival (FR5, ADR-0003).
- * <p>
- * Rules, by {@link PaymentStatus#rank()} ({@code PENDING} &lt; {@code CAPTURED}/{@code FAILED} &lt; {@code REFUNDED}):
- * <ol>
- *   <li>a higher rank always wins; a lower rank is {@link Decision#SUPERSEDED} — a refunded payment can never
- *       go back to captured, whatever arrives late;</li>
- *   <li>same status: a larger refunded amount (successive partial refunds) is applied, anything else is a
- *       {@link Decision#DUPLICATE};</li>
- *   <li>same rank, different status ({@code CAPTURED} vs {@code FAILED}, an anomaly): the later state change wins.</li>
- * </ol>
- * The result does not depend on the order in which events arrive ({@link #fold}); the recorder uses this
- * function with an optimistic-concurrency update of {@code payment_state}, so duplicates and replays are safe.
+ * Resolves out-of-order and duplicate notifications by state, not arrival (FR5).
+ * Higher rank wins (PENDING < CAPTURED/FAILED < REFUNDED); same status applies only a larger refund;
+ * CAPTURED vs FAILED: the later change wins. The final state does not depend on arrival order.
  */
 public final class PaymentStatePrecedence {
 
@@ -61,7 +52,7 @@ public final class PaymentStatePrecedence {
         if (incoming.status() == current.status()) {
             return refunded(incoming).compareTo(refunded(current)) > 0 ? Decision.APPLY : Decision.DUPLICATE;
         }
-        // Same rank, different status (CAPTURED vs FAILED): the later state change at the provider wins.
+        // CAPTURED vs FAILED: the later change wins.
         return incoming.statusChangedAt().isAfter(current.statusChangedAt()) ? Decision.APPLY : Decision.SUPERSEDED;
     }
 

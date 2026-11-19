@@ -7,11 +7,7 @@ import java.util.regex.Pattern;
 import com.meridian.payments.intake.domain.PolicyReference;
 import com.meridian.payments.intake.domain.ReferenceStatus;
 
-/**
- * Turns the payment reference sent by a provider into a Salesforce policy number
- * ({@code POL-CC-NNNNNNNNN}, upper case). Since Andina Pay 2.3 the reference is whatever the
- * payer typed (INC-0412), so only unambiguous variants are normalized; nothing is guessed.
- */
+/** Normalizes the payer-typed reference to POL-CC-NNNNNNNNN (INC-0412). Never guesses. */
 public class PolicyReferenceNormalizer {
 
     private static final Pattern FULL = Pattern.compile("^POL-([A-Z]{2})-(\\d{9})$");
@@ -26,7 +22,7 @@ public class PolicyReferenceNormalizer {
         Matcher full = FULL.matcher(compact);
         if (full.matches()) {
             if (!full.group(1).equals(country)) {
-                // A policy of another country paid through this country's provider: do not guess.
+                // Another country's policy: do not guess.
                 return new PolicyReference(reference, null, ReferenceStatus.INVALID);
             }
             ReferenceStatus status = compact.equals(reference) ? ReferenceStatus.VALID : ReferenceStatus.NORMALIZED;

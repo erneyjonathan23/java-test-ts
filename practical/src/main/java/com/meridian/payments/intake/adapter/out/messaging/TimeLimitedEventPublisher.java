@@ -13,13 +13,8 @@ import com.meridian.payments.intake.application.port.out.PublishException;
 import com.meridian.payments.intake.domain.PremiumPaymentEvent;
 
 /**
- * Decorator that bounds how long a publication may take (NFR4). The intake must answer before the
- * strictest provider timeout (Andina: 5 s); a broker that hangs must turn into a fast {@code 503}
- * (not accepted, provider retries), never into a provider-side timeout.
- * <p>
- * If the slow publication completes after the timeout, the event is published although we answered
- * {@code 503}: the provider's retry then produces a duplicate, which downstream idempotency absorbs.
- * Losing a payment is impossible; duplicating one is harmless.
+ * Caps publish time below the provider timeout (NFR4): a hung broker becomes a fast 503.
+ * A late success only causes a duplicate, which downstream idempotency absorbs.
  */
 public class TimeLimitedEventPublisher implements EventPublisher, AutoCloseable {
 

@@ -25,12 +25,8 @@ import com.meridian.payments.intake.domain.PremiumPaymentEvent;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 /**
- * Use case "receive a payment notification", identical for every provider:
- * verify signature → map to canonical → claim idempotency key → publish → acknowledge.
- * <p>
- * A notification is accepted (2xx) only after the event has been durably published (NFR3).
- * Every exception thrown from here means "not accepted" and is translated to a non-2xx status by the
- * inbound adapter, so the provider retries. Framework-free: wired in {@code config}.
+ * Use case: verify → map → claim → publish → acknowledge, the same for every provider.
+ * Returns only after the event is durably published (NFR3); any exception means "not accepted".
  */
 public class IntakeService {
 
@@ -76,8 +72,7 @@ public class IntakeService {
 
         ClaimResult claim = idempotencyStore.claim(event, now);
         if (claim == ClaimResult.IN_FLIGHT) {
-            // A concurrent delivery of the same event is publishing it: let the provider retry instead of
-            // publishing twice in parallel.
+            // Another delivery is publishing this event: let the provider retry.
             throw new DeliveryInProgressException(data.idempotencyKey());
         }
         if (claim == ClaimResult.ALREADY_PUBLISHED) {
@@ -94,9 +89,7 @@ public class IntakeService {
             throw e;
         }
 
-        // From here the event is durably published, so the notification is accepted even if the
-        // bookkeeping below fails: the worst case is one extra publication on a later retry,
-        // which the recorder absorbs (idempotent, precedence-guarded).
+        // Published = accepted. If bookkeeping fails, the worst case is a harmless duplicate later.
         try {
             idempotencyStore.markPublished(data.idempotencyKey());
         } catch (RuntimeException e) {
@@ -115,7 +108,7 @@ public class IntakeService {
         try {
             idempotencyStore.release(idempotencyKey);
         } catch (RuntimeException e) {
-            // The lease expires on its own; the provider's retry is only delayed, never lost.
+            // The lease expires anyway; the retry is only delayed.
             log.warn("could not release claim idempotencyKey={} error={}", idempotencyKey, e.getClass().getSimpleName());
         }
     }
@@ -124,7 +117,7 @@ public class IntakeService {
         try {
             idempotencyStore.recordAttempt(event, outcome);
         } catch (RuntimeException e) {
-            // Losing an attempt record degrades FR7 lookups by a retry's id; it must not reject the notification.
+            // Best effort: must never reject an accepted notification.
             log.warn("could not record attempt idempotencyKey={} error={}",
                     event.data().idempotencyKey(), e.getClass().getSimpleName());
         }
@@ -136,7 +129,7 @@ public class IntakeService {
             case MalformedNotificationException ignored -> Rejection.MALFORMED;
             case UnsupportedNotificationException ignored -> Rejection.UNSUPPORTED;
             case DeliveryInProgressException ignored -> Rejection.IN_PROGRESS;
-            // Broker, store or Key Vault unavailable, or anything unexpected: not accepted, the provider retries.
+            // Broker, store, Key Vault or unexpected: not accepted, the provider retries.
             default -> Rejection.DEPENDENCY_UNAVAILABLE;
         };
     }

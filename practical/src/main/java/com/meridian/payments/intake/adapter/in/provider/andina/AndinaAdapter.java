@@ -32,9 +32,8 @@ import com.meridian.payments.intake.domain.PremiumPaymentData;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 /**
- * Andina Pay (Colombia), API version 2.3.
- * Signature: {@code X-Andina-Signature} = Base64(HMAC-SHA256({@code <X-Andina-Timestamp>.<raw_body>})).
- * Retries carry a NEW notificacion_id: the business event is transaccion.id + transaccion.estado.
+ * Andina Pay (CO), API 2.3. Signature: Base64 HMAC-SHA256 of "timestamp.body".
+ * Retries get a new notificacion_id, so the business key is transaction id + state.
  */
 @Component
 public class AndinaAdapter implements ProviderAdapter {
@@ -92,7 +91,7 @@ public class AndinaAdapter implements ProviderAdapter {
             throw new SignatureVerificationException("signature is not Base64");
         }
 
-        // The signed content uses the timestamp header exactly as received.
+        // Sign with the timestamp text exactly as received.
         for (String secret : secrets.secrets(SECRET_NAME)) {
             if (Hmac.constantTimeEquals(Hmac.sha256(secret, timestamp, rawBody), provided)) {
                 return;
@@ -123,7 +122,7 @@ public class AndinaAdapter implements ProviderAdapter {
         }
         String currency = text(trx, "moneda");
 
-        // transaccion.pagador (name, national ID, e-mail) is deliberately never read.
+        // pagador (payer data) is never read: no personal data.
         return new PremiumPaymentData(
                 PremiumPaymentData.SCHEMA_VERSION,
                 PROVIDER + ":" + transactionId + ":" + state,

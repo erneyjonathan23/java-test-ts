@@ -9,10 +9,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
-/**
- * Micrometer implementation. Exported to Application Insights in Azure; the names and tags are the ones
- * used by the alerts in infra/modules/monitoring.bicep and docs/operations/OPERATIONS.md.
- */
+/** Micrometer metrics; names and tags match the alerts in infra/modules/monitoring.bicep. */
 public class MicrometerIntakeMetrics implements IntakeMetrics {
 
     public static final String ACCEPTED = "intake.accepted";

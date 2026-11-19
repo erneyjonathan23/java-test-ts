@@ -17,7 +17,7 @@ public final class JsonFields {
     private final ObjectReader reader;
 
     public JsonFields(ObjectMapper mapper) {
-        // Duplicate keys are rejected: the signed bytes must have exactly one meaning.
+        // Reject duplicate keys: signed bytes must have one meaning.
         this.reader = mapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
     }
 

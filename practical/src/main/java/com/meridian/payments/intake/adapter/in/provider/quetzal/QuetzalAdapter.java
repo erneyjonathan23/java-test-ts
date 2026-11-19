@@ -31,10 +31,7 @@ import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import com.meridian.payments.intake.domain.PremiumPaymentData;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
-/**
- * Quetzal Pagos (Mexico), API version 2025-06-01.
- * Signature: {@code Quetzal-Signature: t=<unix>,v1=<hex>[,v1=<hex>]} = hex HMAC-SHA256 of {@code <t>.<raw_body>}.
- */
+/** Quetzal Pagos (MX), API 2025-06-01. Signature: "t=unix,v1=hex" over "t.body", 300 s window. */
 @Component
 public class QuetzalAdapter implements ProviderAdapter {
 
@@ -89,7 +86,7 @@ public class QuetzalAdapter implements ProviderAdapter {
                 }
                 case "v1" -> candidates.add(parseHex(value));
                 default -> {
-                    // Unknown schemes (e.g. a future v2) are ignored, as long as one v1 matches.
+                    // Ignore unknown schemes (e.g. a future v2).
                 }
             }
         }
@@ -107,7 +104,7 @@ public class QuetzalAdapter implements ProviderAdapter {
             throw new SignatureVerificationException("timestamp outside tolerance");
         }
 
-        // The signed content uses the timestamp exactly as received.
+        // Sign with the timestamp text exactly as received.
         for (String secret : secrets.secrets(SECRET_NAME)) {
             byte[] expected = Hmac.sha256(secret, timestamp, rawBody);
             for (byte[] candidate : candidates) {
@@ -147,7 +144,7 @@ public class QuetzalAdapter implements ProviderAdapter {
                 : null;
         String reason = status == PaymentStatus.FAILED ? optionalText(charge, "failure_code") : null;
 
-        // data.charge.customer (payer e-mail) is deliberately never read.
+        // customer (payer e-mail) is never read: no personal data.
         return new PremiumPaymentData(
                 PremiumPaymentData.SCHEMA_VERSION,
                 PROVIDER + ":" + eventId,

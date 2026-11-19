@@ -2,10 +2,7 @@ package com.meridian.payments.intake.application.port.out;
 
 import java.time.Duration;
 
-/**
- * Business metrics of the intake, always tagged by provider and country so freshness, loss and
- * rejections can be alerted per country (NFR7). Implemented with Micrometer.
- */
+/** Intake metrics, tagged by provider and country for per-country alerts (NFR7). */
 public interface IntakeMetrics {
 
     enum Outcome { PUBLISHED, DUPLICATE }

@@ -29,12 +29,8 @@ import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * Composition root: the only place where the framework-free domain and application layers meet Spring
- * and the concrete adapters.
- * <p>
- * Outside the {@code azure} profile the external dependencies are the in-memory/environment stubs.
- * The {@code azure} profile would contribute the Service Bus, Azure SQL and Key Vault adapters
- * (not part of this deliverable), so a stubbed build can never start silently in Azure.
+ * Composition root: the only place where Spring meets the domain, application and adapters.
+ * Stubs are wired outside the "azure" profile only.
  */
 @Configuration
 @EnableConfigurationProperties(IntakeProperties.class)

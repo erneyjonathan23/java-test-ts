@@ -18,10 +18,7 @@ import com.meridian.payments.intake.application.port.out.StoreUnavailableExcepti
 import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
-/**
- * Maps failures to statuses. Rule: anything that is not a 2xx means "not accepted, please retry".
- * Problem responses never contain request data; internal reasons go to our logs only.
- */
+/** Maps errors to HTTP statuses. Any non-2xx means "not accepted, retry". Never echoes request data. */
 @RestControllerAdvice
 public class ProblemHandler {
 
@@ -41,7 +38,7 @@ public class ProblemHandler {
 
     @ExceptionHandler(UnsupportedNotificationException.class)
     ProblemDetail unsupported(UnsupportedNotificationException e) {
-        // Valid signature but unknown semantics: alert, fix the adapter, the provider keeps retrying.
+        // Authentic but unknown event: alert and fix the adapter; the provider keeps retrying.
         log.error("rejected notification: unsupported reason={}", e.getMessage());
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Unsupported notification");
     }

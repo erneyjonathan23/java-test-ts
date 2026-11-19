@@ -13,11 +13,7 @@ import com.meridian.payments.intake.application.IntakeService;
 import com.meridian.payments.intake.application.RequestHeaders;
 import com.meridian.payments.intake.config.IntakeProperties;
 
-/**
- * Inbound HTTP adapter (contract: docs/api/webhooks.openapi.yaml). The body is taken as raw bytes:
- * signatures are computed over the exact bytes received, so the JSON is never re-serialized
- * before verification.
- */
+/** Webhook endpoint. Reads the body as raw bytes because signatures cover the exact bytes. */
 @RestController
 public class WebhookController {
 
@@ -34,12 +30,12 @@ public class WebhookController {
                                         @RequestBody byte[] rawBody,
                                         @RequestHeader HttpHeaders headers,
                                         @RequestAttribute(CorrelationIdFilter.ATTRIBUTE) String correlationId) {
-        // RequestSizeLimitFilter rejects declared oversized bodies before reading them; this covers chunked requests.
+        // Covers chunked bodies; declared sizes are rejected earlier by RequestSizeLimitFilter.
         if (rawBody.length > maxBodyBytes) {
             throw new PayloadTooLargeException();
         }
         intake.receive(provider, rawBody, RequestHeaders.of(headers), correlationId);
-        // Same answer for new and duplicate notifications: both are accepted.
+        // New or duplicate: both are accepted.
         return ResponseEntity.ok().build();
     }
 }

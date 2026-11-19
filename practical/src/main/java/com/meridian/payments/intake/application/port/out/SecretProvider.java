@@ -2,15 +2,9 @@ package com.meridian.payments.intake.application.port.out;
 
 import java.util.List;
 
-/**
- * Source of webhook secrets. Returns every secret currently valid (current and next during a rotation).
- * Production implementation: Azure Key Vault through the app's managed identity, cached for a few minutes.
- */
+/** Webhook secrets currently valid (current and next during a rotation). Production: Key Vault. */
 public interface SecretProvider {
 
-    /**
-     * @throws SecretUnavailableException when no secret can be obtained. The request must then be refused
-     *                                    with a retryable status, never treated as an invalid signature.
-     */
+    /** @throws SecretUnavailableException if no secret is available (answer 503, never 401) */
     List<String> secrets(String name);
 }

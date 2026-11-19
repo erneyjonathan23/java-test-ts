@@ -5,10 +5,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * Framework-independent, case-insensitive view of the HTTP headers a provider sent.
- * Keeps the application layer free of Spring Web types.
- */
+/** Case-insensitive request headers, without Spring types. */
 public final class RequestHeaders {
 
     private final Map<String, List<String>> values;

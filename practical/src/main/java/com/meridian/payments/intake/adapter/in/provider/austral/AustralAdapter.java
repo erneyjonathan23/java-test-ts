@@ -28,10 +28,8 @@ import com.meridian.payments.intake.domain.PremiumPaymentData;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 /**
- * Austral Pagos (Chile). Added to show that a third provider needs no change to the shared flow (NFR9);
- * it is also the corrected counterpart of PR-214.
- * Signature: {@code X-Austral-Signature} = lowercase hex HMAC-SHA256 of the raw body. Austral does not sign
- * a timestamp, so replays are neutralised by idempotency on {@code eventId} (stable across retries).
+ * Austral Pagos (CL). Signature: hex HMAC-SHA256 of the body (no timestamp),
+ * so replays are stopped by idempotency on eventId.
  */
 @Component
 public class AustralAdapter implements ProviderAdapter {
@@ -101,7 +99,7 @@ public class AustralAdapter implements ProviderAdapter {
             throw new MalformedNotificationException("invalid amount payment.amount");
         }
 
-        // payment.payer (name, RUT, e-mail) is deliberately never read.
+        // payer (name, RUT, e-mail) is never read: no personal data.
         return new PremiumPaymentData(
                 PremiumPaymentData.SCHEMA_VERSION,
                 PROVIDER + ":" + eventId,
@@ -113,7 +111,7 @@ public class AustralAdapter implements ProviderAdapter {
                 eventType,
                 status,
                 offsetDateTime(payment, "occurredAt"),
-                // CLP has no minor unit: "45990.50" is rejected, never rounded.
+                // CLP has no decimals: rejected, never rounded.
                 Amounts.fromMajorUnits(new BigDecimal(amount), text(payment, "currency")),
                 null,
                 policyReferences.normalize(text(payment, "policyNumber"), COUNTRY),

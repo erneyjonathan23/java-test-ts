@@ -16,11 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.meridian.payments.intake.config.IntakeProperties;
 
-/**
- * Rejects webhook requests whose declared {@code Content-Length} exceeds the limit before the body is read,
- * so an oversized request cannot make the service buffer it in memory (defence in depth: the API Manager
- * enforces the same limit at the edge).
- */
+/** Rejects oversized webhook bodies (by Content-Length) before reading them. */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class RequestSizeLimitFilter extends OncePerRequestFilter {

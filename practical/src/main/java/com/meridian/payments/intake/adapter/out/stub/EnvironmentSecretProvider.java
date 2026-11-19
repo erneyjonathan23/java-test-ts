@@ -8,11 +8,7 @@ import org.springframework.core.env.Environment;
 import com.meridian.payments.intake.application.port.out.SecretProvider;
 import com.meridian.payments.intake.application.port.out.SecretUnavailableException;
 
-/**
- * STUB of Key Vault for local runs and tests: reads {@code intake.secrets.<name>} (comma-separated list,
- * current secret first) from the Spring environment, i.e. from environment variables. No secret is
- * ever written in a configuration file of this repository.
- */
+/** Key Vault stub: reads intake.secrets.<name> (comma-separated, current first) from env vars. */
 public class EnvironmentSecretProvider implements SecretProvider {
 
     private final Environment environment;

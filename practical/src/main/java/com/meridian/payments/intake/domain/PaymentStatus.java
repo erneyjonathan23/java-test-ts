@@ -1,9 +1,6 @@
 package com.meridian.payments.intake.domain;
 
-/**
- * Canonical payment lifecycle. The rank is the precedence used downstream to resolve
- * out-of-order notifications (see ADR-0003): a payment never moves to a lower rank.
- */
+/** Canonical lifecycle. The rank orders states: a payment never moves to a lower rank. */
 public enum PaymentStatus {
     PENDING(0),
     CAPTURED(1),

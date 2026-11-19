@@ -2,10 +2,7 @@ package com.meridian.payments.intake.domain;
 
 import java.time.Instant;
 
-/**
- * Payload of the canonical event. Provider independent and free of payer personal data.
- * Contract: docs/api/events/premium-payment.schema.json
- */
+/** Canonical event payload: provider independent, no payer personal data. */
 public record PremiumPaymentData(
         String schemaVersion,
         String idempotencyKey,

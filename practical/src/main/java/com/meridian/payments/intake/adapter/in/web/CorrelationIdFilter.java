@@ -15,11 +15,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Takes the correlation id set by the API Manager (or creates one), puts it in the logging context,
- * exposes it to the controller and returns it to the caller. It travels on in the canonical event
- * ({@code correlationid}) and as the Service Bus message correlation id.
- */
+/** Reads or creates the correlation id, adds it to the logs and returns it to the caller. */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorrelationIdFilter extends OncePerRequestFilter {
@@ -32,7 +28,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String incoming = request.getHeader(HEADER);
-        // Untrusted input: only accept a safe format, otherwise generate our own (prevents log injection).
+        // Untrusted input: keep only safe ids (prevents log injection).
         String correlationId = incoming != null && VALID.matcher(incoming).matches()
                 ? incoming
                 : UUID.randomUUID().toString();
