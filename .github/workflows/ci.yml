@@ -28,7 +28,7 @@ jobs:
       run:
         working-directory: practical
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -52,7 +52,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Lint OpenAPI contract
         run: npx --yes @stoplight/spectral-cli@6.11.1 lint docs/api/webhooks.openapi.yaml --ruleset .github/spectral.yaml --fail-severity error
       - name: Event schema is valid JSON Schema 2020-12
@@ -76,7 +76,7 @@ jobs:
   iac:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Bicep build and lint (warnings fail the build)
         run: |
           az bicep install
@@ -97,7 +97,7 @@ jobs:
       security-events: write
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for the secret scan
       - name: Secret scan (whole history)
@@ -129,7 +129,7 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v4
         with:
           name: intake-jar
