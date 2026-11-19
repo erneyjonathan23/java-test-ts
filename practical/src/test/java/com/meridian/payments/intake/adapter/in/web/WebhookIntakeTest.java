@@ -1,13 +1,13 @@
 package com.meridian.payments.intake.adapter.in.web;
 
 import static com.meridian.payments.intake.TestFixtures.ANDINA_TEST_SECRET;
-import static com.meridian.payments.intake.TestFixtures.AUSTRAL_TEST_SECRET;
-import static com.meridian.payments.intake.TestFixtures.AU_CONFIRMED;
-import static com.meridian.payments.intake.TestFixtures.AU_REVERSED;
 import static com.meridian.payments.intake.TestFixtures.AN_APPROVED;
 import static com.meridian.payments.intake.TestFixtures.AN_APPROVED_RETRY;
 import static com.meridian.payments.intake.TestFixtures.AN_PENDING;
 import static com.meridian.payments.intake.TestFixtures.AN_REVERSED;
+import static com.meridian.payments.intake.TestFixtures.AUSTRAL_TEST_SECRET;
+import static com.meridian.payments.intake.TestFixtures.AU_CONFIRMED;
+import static com.meridian.payments.intake.TestFixtures.AU_REVERSED;
 import static com.meridian.payments.intake.TestFixtures.QUETZAL_TEST_SECRET;
 import static com.meridian.payments.intake.TestFixtures.QZ_REFUNDED;
 import static com.meridian.payments.intake.TestFixtures.QZ_SUCCEEDED;
@@ -32,26 +32,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.TestFixtures.MutableClock;
 import com.meridian.payments.intake.TestFixtures.Vector;
-import com.meridian.payments.intake.domain.PaymentStatus;
-import com.meridian.payments.intake.domain.PremiumPaymentEvent;
+import com.meridian.payments.intake.TestFixtures;
+import com.meridian.payments.intake.adapter.out.stub.InMemoryEventPublisher;
+import com.meridian.payments.intake.adapter.out.stub.InMemoryIdempotencyStore;
 import com.meridian.payments.intake.application.port.out.IdempotencyStore.AttemptOutcome;
 import com.meridian.payments.intake.application.port.out.PublishException;
 import com.meridian.payments.intake.application.port.out.StoreUnavailableException;
-import com.meridian.payments.intake.adapter.out.stub.InMemoryEventPublisher;
-import com.meridian.payments.intake.adapter.out.stub.InMemoryIdempotencyStore;
+import com.meridian.payments.intake.domain.PaymentStatus;
+import com.meridian.payments.intake.domain.PremiumPaymentEvent;
 
 /**
  * End-to-end through HTTP with the stubs: the behaviours that matter for this integration

@@ -20,7 +20,7 @@ cd practical
 ./mvnw test          # Windows: mvnw.cmd test
 ```
 
-**99 tests, all green.** The tests read the provider samples **byte for byte** from `../reference/providers/` and the event schema from `../docs/api/`, so they must run from a checkout of the whole repository. The repository's `.gitattributes` keeps the sample files from being converted to CRLF on Windows: a change of line endings breaks the HMAC test vectors, exactly as it would break a real provider signature.
+**119 tests, all green.** The tests read the provider samples **byte for byte** from `../reference/providers/` and the event schema from `../docs/api/`, so they must run from a checkout of the whole repository. The repository's `.gitattributes` keeps the sample files from being converted to CRLF on Windows: a change of line endings breaks the HMAC test vectors, exactly as it would break a real provider signature.
 
 Run locally (stubs only, nothing external is called):
 
@@ -37,8 +37,9 @@ These are the providers' published **sandbox** secrets from `reference/`. The Qu
 
 ```
 com.meridian.payments.intake
-├── domain/                     plain Java: canonical event (CloudEvents envelope), PaymentStatus with its
-│                               precedence rank, Money/Amounts (ISO exponents), PolicyReferenceNormalizer
+├── domain/                     plain Java: canonical event (CloudEvents envelope), PaymentStatus,
+│                               PaymentStatePrecedence (FR5 ordering rule), Money/Amounts (ISO exponents),
+│                               PolicyReferenceNormalizer
 ├── application/                the use case, framework-free
 │   ├── IntakeService           verify → map → claim idempotency key → publish → acknowledge
 │   ├── RequestHeaders          case-insensitive headers without Spring types
@@ -67,7 +68,9 @@ Adding a provider = one `ProviderAdapter` class + its secret. `IntakeService`, t
 | Andina retry with a new `notificacion_id`, Quetzal and Austral re-deliveries: acknowledged but published **once**; every attempt recorded for operations | FR4, FR7 | `WebhookIntakeTest` |
 | Broker or store unavailable → `503` (not accepted); the provider's retry then publishes; a failure after publishing still answers `200` | NFR3 | `brokerOutage…`, `idempotencyStoreOutage…`, `failureToMarkAsPublished…` |
 | A **hanging** broker is answered with `503` in < 3 s (publish timeout on virtual threads), never with a provider-side timeout | NFR4 | `aHangingBroker…`, `TimeLimitedEventPublisherTest` |
-| Out-of-order notifications are all accepted with their own `statusChangedAt` (ordering is resolved downstream, ADR-0003) | FR5 (input to) | `outOfOrderNotifications…` |
+| Out-of-order notifications are all accepted with their own `statusChangedAt` | FR5 (input to) | `outOfOrderNotifications…` |
+| **Ordering rule** used downstream: the final state is the same for every arrival order (all permutations of the real samples end `REFUNDED`); a late capture never overrides a refund; partial refunds keep the largest amount | FR5 | `PaymentStatePrecedenceTest` |
+| Concurrent deliveries of the same event: exactly one publishes (lease); the other gets `503` and its retry is acknowledged; a failed publication releases the lease | FR4, NFR3 | `concurrentDeliveries…`, `InMemoryIdempotencyStoreTest` |
 | Metrics `intake.accepted{provider,country,outcome}`, `intake.rejected{…,reason}`, `intake.latency` | NFR7 | `metricsAreTaggedPerCountryAndOutcome` |
 | Oversized (rejected before reading when `Content-Length` is declared), malformed, unknown provider; unsafe correlation ids replaced (log injection) | NFR6 | `WebhookIntakeTest` |
 | No personal data in the application logs, including rejected requests | NFR6 | `personalDataNeverReachesTheLogs` |
@@ -78,7 +81,7 @@ Adding a provider = one `ProviderAdapter` class + its secret. `IntakeService`, t
 | Dependency | Port | Stub (profile `!azure`) | Production adapter (not built) |
 |---|---|---|---|
 | Azure Service Bus topic | `EventPublisher` | `InMemoryEventPublisher`, wrapped by the real `TimeLimitedEventPublisher` | `ServiceBusSenderClient` + `DefaultAzureCredential`, `messageId = idempotencyKey` |
-| Azure SQL (`inbound_event`, `inbound_attempt`) | `IdempotencyStore` | `InMemoryIdempotencyStore` | JDBC with Entra ID token auth, `INSERT` + primary-key violation handling |
+| Azure SQL (`inbound_event`, `inbound_attempt`) | `IdempotencyStore` | `InMemoryIdempotencyStore` (same lease semantics) | JDBC with Entra ID token auth; schema in [`db/migrations`](../db/migrations); `INSERT`, then a conditional `UPDATE` of `claimed_until` on a primary-key violation |
 | Azure Key Vault | `SecretProvider` | `EnvironmentSecretProvider` (environment variables) | `SecretClient` with managed identity, 5-minute cache, current + next secret |
 | Application Insights | `IntakeMetrics` | — (real Micrometer adapter; registry exported by the Azure Monitor agent) | same |
 | Clock | `java.time.Clock` | `MutableClock` in tests | `Clock.systemUTC()` |
@@ -88,7 +91,6 @@ Stubs are only wired outside the `azure` profile and log a `WARN` at startup, so
 ## Known gaps
 
 - Real adapters for Service Bus, Azure SQL (with Flyway migrations) and Key Vault are not implemented; only their contracts and semantics, exercised through the stubs.
-- Two concurrent first deliveries of the same business event can both publish (the stub, like a plain SQL claim, does not lease the key). Harmless because the recorder is idempotent; a short `IN_FLIGHT` lease would remove it.
 - Validation of the API Manager's machine-to-machine token (A-4) is assumed to be platform configuration and is not in the code.
 - OpenTelemetry trace propagation into Service Bus is described in `OPERATIONS.md`, not wired; the freshness metric belongs to the recorder, which is not built.
 - No load test; the capacity figures in the design are calculations.

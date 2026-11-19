@@ -10,8 +10,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,17 +20,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpHeaders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.TestFixtures.Vector;
+import com.meridian.payments.intake.TestFixtures;
+import com.meridian.payments.intake.application.SignatureVerificationException;
+import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.PaymentMethodType;
 import com.meridian.payments.intake.domain.PaymentStatus;
+import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import com.meridian.payments.intake.domain.PremiumPaymentData;
 import com.meridian.payments.intake.domain.ReferenceStatus;
-import com.meridian.payments.intake.domain.MalformedNotificationException;
-import com.meridian.payments.intake.application.SignatureVerificationException;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
-import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 
 class AndinaAdapterTest {
 

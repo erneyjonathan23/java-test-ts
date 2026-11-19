@@ -3,8 +3,8 @@ package com.meridian.payments.intake.adapter.out.stub;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import com.meridian.payments.intake.domain.PremiumPaymentEvent;
 import com.meridian.payments.intake.application.port.out.EventPublisher;
+import com.meridian.payments.intake.domain.PremiumPaymentEvent;
 
 /** STUB of the Service Bus topic: keeps published events in memory so tests can inspect them. */
 public class InMemoryEventPublisher implements EventPublisher {

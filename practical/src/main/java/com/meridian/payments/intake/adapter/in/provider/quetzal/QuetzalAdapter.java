@@ -17,19 +17,19 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.meridian.payments.intake.adapter.in.provider.support.Hmac;
+import com.meridian.payments.intake.adapter.in.provider.support.JsonFields;
+import com.meridian.payments.intake.application.RequestHeaders;
+import com.meridian.payments.intake.application.SignatureVerificationException;
+import com.meridian.payments.intake.application.port.out.SecretProvider;
+import com.meridian.payments.intake.application.spi.ProviderAdapter;
+import com.meridian.payments.intake.domain.Amounts;
 import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.PaymentMethodType;
 import com.meridian.payments.intake.domain.PaymentStatus;
-import com.meridian.payments.intake.domain.PremiumPaymentData;
-import com.meridian.payments.intake.application.spi.ProviderAdapter;
-import com.meridian.payments.intake.application.RequestHeaders;
-import com.meridian.payments.intake.application.SignatureVerificationException;
-import com.meridian.payments.intake.domain.UnsupportedNotificationException;
-import com.meridian.payments.intake.domain.Amounts;
-import com.meridian.payments.intake.adapter.in.provider.support.Hmac;
-import com.meridian.payments.intake.adapter.in.provider.support.JsonFields;
 import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
-import com.meridian.payments.intake.application.port.out.SecretProvider;
+import com.meridian.payments.intake.domain.PremiumPaymentData;
+import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 /**
  * Quetzal Pagos (Mexico), API version 2025-06-01.

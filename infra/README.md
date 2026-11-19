@@ -21,6 +21,7 @@ infra/
 │   ├── test.bicepparam
 │   └── prod.bicepparam
 └── sql/grants.sql             database users FROM EXTERNAL PROVIDER for the identities, least privilege
+                               (the schema itself is the Flyway migration in ../db/migrations)
 ```
 
 ## Parameters per environment and per country

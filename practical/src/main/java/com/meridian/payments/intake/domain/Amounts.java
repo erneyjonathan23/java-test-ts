@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Map;
 
-import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.MalformedNotificationException;
+import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 /** Money conversions with explicit ISO 4217 exponents. No floating point anywhere. */

@@ -217,7 +217,7 @@ The payment key is prefixed with the provider because transaction ids are only u
 
 ### Where it is enforced (defence in depth)
 
-1. **Intake** — `inbound_event` table, unique on `idempotency_key`. A key already `PUBLISHED` is acknowledged without publishing again. A key claimed but **not** published (crash, broker outage) is published again: the claim never blocks a retry, so it cannot cause loss.
+1. **Intake** — `inbound_event` table, unique on `idempotency_key`. A key already `PUBLISHED` is acknowledged without publishing again. The claim is a short **lease** (`claimed_until`, 10 s > the 3 s publish timeout): a concurrent delivery of the same event gets `503` and retries, a failed publication releases the lease, and an expired lease (crash) lets the next retry publish. The claim never blocks a retry for long, so it cannot cause loss.
 2. **Recorder** — the precedence rule below is idempotent by construction: applying the same event twice is a no-op. This covers duplicates the intake cannot see (crash between publish and `mark PUBLISHED`, DLQ replays).
 3. **Salesforce** — upsert by external id `Payment_Key__c`: re-sending a record updates it, it never creates a second payment. *Exactly once in business terms* = one `Premium_Payment__c` per payment, whose status reflects the latest real state.
 4. **Consumers** — the contract requires them to deduplicate on `idempotencyKey` (at-least-once delivery is documented in `docs/api/README.md`).
@@ -232,7 +232,7 @@ Notifications arrive out of order for every provider, so ordering is resolved on
 | 1 | `FAILED`, `CAPTURED` | `REFUNDED` (from `CAPTURED`), or the other rank-1 state if its `statusChangedAt` is later (anomaly, logged) |
 | 2 | `REFUNDED` | nothing — terminal |
 
-An incoming event is applied when `rank(new) > rank(current)`, or `rank(new) == rank(current)` with a later `statusChangedAt` (also used to keep the largest `amountRefunded` for successive partial refunds). Otherwise it is recorded as `SUPERSEDED`. The update is a single conditional `UPDATE … WHERE payment_key = @k AND row_version = @v` (optimistic concurrency), retried on conflict.
+Implemented and tested as a pure domain function, `PaymentStatePrecedence` (`practical/`); the tests check that every arrival order of the real samples converges to the same final state. An incoming event is applied when `rank(new) > rank(current)`, or `rank(new) == rank(current)` with a later `statusChangedAt` (also used to keep the largest `amountRefunded` for successive partial refunds). Otherwise it is recorded as `SUPERSEDED`. The update is a single conditional `UPDATE … WHERE payment_key = @k AND row_version = @v` (optimistic concurrency), retried on conflict.
 
 Examples: `REVERSADA` arriving before `APROBADA` → the payment is created as `REFUNDED`; the late `APROBADA` is superseded and Salesforce never shows a refunded payment as captured (FR5). A retried `PENDIENTE` after `APROBADA` is superseded.
 
@@ -276,7 +276,7 @@ Salesforce is then written from the **current state**, never from the event, by 
 
 ## 8. Data persisted outside Salesforce
 
-Salesforce stays the system of record. We keep only **operational state** needed for idempotency, ordering and FR7, in **Azure SQL Database** (ADR-0002). No payer personal data and no raw bodies are stored.
+Salesforce stays the system of record. We keep only **operational state** needed for idempotency, ordering and FR7, in **Azure SQL Database** (ADR-0002). No payer personal data and no raw bodies are stored. The schema below is the Flyway migration [`db/migrations/V1__operational_state.sql`](../../db/migrations/V1__operational_state.sql) (abridged here), applied by the CD pipeline.
 
 ```sql
 -- One row per business event (idempotency) and its processing status.

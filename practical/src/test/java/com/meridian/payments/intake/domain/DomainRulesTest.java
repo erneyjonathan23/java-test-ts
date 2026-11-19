@@ -10,10 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.PolicyReference;
 import com.meridian.payments.intake.domain.ReferenceStatus;
-import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
 
 class DomainRulesTest {

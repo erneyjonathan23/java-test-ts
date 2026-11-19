@@ -19,17 +19,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpHeaders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.TestFixtures.Vector;
+import com.meridian.payments.intake.TestFixtures;
+import com.meridian.payments.intake.application.SignatureVerificationException;
+import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.Money;
 import com.meridian.payments.intake.domain.PaymentMethodType;
 import com.meridian.payments.intake.domain.PaymentStatus;
+import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import com.meridian.payments.intake.domain.PremiumPaymentData;
 import com.meridian.payments.intake.domain.ReferenceStatus;
-import com.meridian.payments.intake.domain.MalformedNotificationException;
-import com.meridian.payments.intake.application.SignatureVerificationException;
 import com.meridian.payments.intake.domain.UnsupportedNotificationException;
-import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 
 class QuetzalAdapterTest {
 

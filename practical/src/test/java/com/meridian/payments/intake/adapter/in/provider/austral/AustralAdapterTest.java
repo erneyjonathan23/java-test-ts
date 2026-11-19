@@ -17,8 +17,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpHeaders;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.TestFixtures.Vector;
+import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.application.SignatureVerificationException;
 import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.Money;

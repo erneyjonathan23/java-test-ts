@@ -1,54 +1,50 @@
 # INC-0412 — Response
 
-> On-call engineer, Monday 2026-11-30 08:15 (Colombia time). All times in Colombia time (UTC−5).
+> On-call engineer, Monday 2026-11-30 08:15. All times Colombia time (UTC−5).
 
 ## 1. First 30 minutes
 
 | Time | What I check / do | Why |
 |---|---|---|
-| 08:15–08:20 | Acknowledge, open the incident channel, confirm **SEV-2** (escalate to SEV-1 if the impact is in the thousands, see below). Tell the Colombia contact-center lead that we are on it and that no customer action is needed. | Paid customers without coverage is a customer and regulatory impact; the contact center needs a message now. |
-| 08:20–08:25 | Scope from the snapshot: only Colombia is affected (MX/CL: DLQ 2/0, few `400`s); CO volume is normal (37,215 vs 36,480), signatures are fine (0 failures), the CO main queue is empty. **CO DLQ has 4,312 messages** and CO has **43,120 Salesforce `400`s = exactly 4,312 × 10**: every failed message was tried 10 times. | Tells me the problem is not intake, volume or authentication, but data rejected by Salesforce for one country. The 37 cases are the tip: **4,198 approved payments** are stuck. |
-| 08:25–08:30 | Read the DLQ samples and the consumer log: `400 INVALID_FIELD: Foreign key external ID: 000215560 not found` and `pol-co-000198004`. References are **not** in the `POL-CO-NNNNNNNNN` format. Redeliveries are 0.25 s apart (no backoff). | The policy lookup fails because the reference is malformed, not because the policy does not exist. |
-| 08:30–08:35 | Match against recent changes: first DLQ message **Sat 23:41**; **Andina API 2.3 took effect Sat 23:00**: "`referencia` is now delivered exactly as entered by the payer… merchants should normalize". The Salesforce release (Sat 22:00) adds a validation rule on **`Policy__c` cancellation** — it would give `FIELD_CUSTOM_VALIDATION_EXCEPTION`, not a foreign-key error, and would affect MX/CL too. `v1.14.0` (Fri 18:05) predates the first failure by 30 h and only changed logging. | Separates the cause from the two red herrings. |
-| 08:35–08:45 | **Stop the bleeding**: API budget is at 66% (vs 38%) because of the 10× retries. Lower `maxDeliveryCount` on `payments-co` to 2 as a temporary config change (valid messages succeed on the first try; the trade-off is that a transient Salesforce error now dead-letters sooner, which is acceptable because the DLQ is replayable and now watched), and alert the Salesforce team that the org limit is at risk. Add the missing DLQ alert for `payments-co` and `payments-cl`. | The retry storm burns the **shared** org budget; if it is exhausted, the contact center and partners go down too. |
+| 08:15 | Acknowledge, open the incident channel, confirm **SEV-2** (SEV-1 if the impact is in the thousands, see below). Tell the Colombia contact-center lead we are on it. | Paid customers without coverage: customer and regulatory impact. |
+| 08:20 | Scope from the snapshot: only Colombia (MX/CL DLQ 2/0); CO volume normal (37,215 vs 36,480), 0 signature failures, main queue empty. **CO DLQ = 4,312** and CO Salesforce **`400`s = 43,120 = 4,312 × 10**: every failed message was tried 10 times. | Not intake, volume or authentication: Salesforce rejects data for one country. The 37 cases are the tip: **4,198 approved payments** are stuck. |
+| 08:25 | DLQ samples and consumer log: `400 INVALID_FIELD: Foreign key external ID: 000215560 not found`, `pol-co-000198004`. References are **not** `POL-CO-NNNNNNNNN`. Redeliveries 0.25 s apart (no backoff). | The lookup fails because the reference is malformed, not because the policy is missing. |
+| 08:30 | Recent changes: first DLQ **Sat 23:41**; **Andina API 2.3 took effect Sat 23:00** ("`referencia` is delivered exactly as entered by the payer… merchants should normalize"). The Salesforce release (22:00) adds a rule on `Policy__c` *cancellation*: it would fail with `FIELD_CUSTOM_VALIDATION_EXCEPTION` and hit MX/CL too. `v1.14.0` (Fri 18:05) predates the failures by 30 h and only changed logging. | Separates the cause from two red herrings. |
+| 08:35 | **Stop the bleeding**: the API budget is at 66% (38% normally) because of the retries, and the org-wide limit is shared with the contact center. Temporarily lower `maxDeliveryCount` on `payments-co` to 2 (valid messages succeed first time; transient errors dead-letter sooner, acceptable because the DLQ is replayable and now watched). Warn the Salesforce team. Add DLQ alerts for `payments-co` and `payments-cl`. | Exhausting the org limit would take down every integration. |
 
 ## 2. Most likely root cause
 
-**Andina Pay 2.3 stopped normalizing `transaccion.referencia` on 2026-11-28 23:00. v1 used the reference unchanged as the external id of `Policy__c`, so every notification whose payer typed the policy number in any other format (lower case, digits only…) was rejected by Salesforce with `400 INVALID_FIELD`. v1 treats every Salesforce failure as retryable, so each one was retried 10 times immediately and dead-lettered; there was no DLQ alert for Colombia.**
+**Andina 2.3 stopped normalizing `transaccion.referencia` on 2026-11-28 23:00. v1 used the reference unchanged as the external id of `Policy__c`, so every payment whose payer typed the policy number in another format was rejected with `400 INVALID_FIELD`. v1 retries every Salesforce failure 10 times immediately and dead-letters it; there was no DLQ alert for Colombia.**
 
-Evidence: timing (23:00 change → 23:41 first DLQ, and nothing before); only Colombia (the only provider that changed); the error is a foreign-key lookup on `Policy_Number__c`; the sample references are recognisable policy numbers in other formats; valid CO notifications (32,880) still succeed; `400`s = DLQ × 10.
+Evidence: timing (23:00 change → 23:41 first DLQ, nothing before); only the provider that changed is affected; the error is a foreign-key lookup on `Policy_Number__c`; the sample references are recognisable policy numbers; valid CO notifications (32,880) still succeed; `400`s = DLQ × 10.
 
-How I confirm it (read only):
-1. Query the DLQ export: 100% of `referencia` values fail `^POL-CO-\d{9}$`; none of the successful CO upserts since 23:00 fails it.
-2. For a sample of 20, normalize (`000215560` → `POL-CO-000215560`, upper-case) and look the policy up in Salesforce: it exists and is `Suspended` with the matching overdue amount.
-3. Check the 37 contact-center cases: their Andina transaction ids are in the DLQ.
-4. Ask Andina (account manager) to confirm 2.3 went live as announced.
+Confirmation (read only): (1) 100% of DLQ `referencia` values fail `^POL-CO-\d{9}$` and no successful CO upsert since 23:00 does; (2) 20 normalized samples (`000215560` → `POL-CO-000215560`) exist in Salesforce as `Suspended` with the matching overdue amount; (3) the 37 cases' transaction ids are in the DLQ; (4) Andina confirms 2.3 went live as announced.
 
-Contributing factors: no validation/normalization of references at intake; non-retryable `400`s retried without backoff; per-country alerts not created from a template; provider changelogs not tracked by the squad.
+Contributing factors: no reference validation at intake; non-retryable `400`s retried without backoff; alerts created by hand per country; provider changelogs not tracked.
 
 ## 3. Remediation
 
-1. **Fix forward (today)**: hotfix the CO mapping to normalize references (trim, upper-case, add `POL-CO-` to 9-digit values; anything else parked and alerted, never guessed — A-8), and classify `400 INVALID_FIELD`/validation errors as **non-retryable** (straight to a "needs attention" DLQ reason, no retries). Unit tests with the incident's references; expedited deployment through the normal pipeline with approval.
-2. **Reprocess the 4,312 dead-lettered messages safely**:
-   - **Export, don't delete**: peek all DLQ messages to a protected file/table (the DLQ remains the source of truth until the end).
-   - **Deduplicate** by `transaccion.id` + `estado` (Andina retries have new `notificacion_id`s).
-   - **Collapse to the latest state per transaction** by precedence `PENDIENTE < APROBADA/RECHAZADA < REVERSADA`, then by `fecha_transaccion`. Example: `TRX-CO-5603318` has both `APROBADA` and `REVERSADA` in the DLQ: replaying them in arrival order with v1 (one upsert per message, no ordering guard) could leave it `Captured` and **reinstate a policy whose payment was reversed**. It must be written once, as `Refunded`.
-   - **Do not regress Salesforce**: skip a transaction if Salesforce already has a record with a newer `Status_Changed_At__c`.
-   - **Normalize references**; the ones that cannot be normalized go to a list for the Colombia operations team (resolved with the Andina transaction in the provider portal), not to Salesforce.
-   - **Dry run** → report (records per final status, normalized vs unresolved references, expected reinstatements) reviewed by a second engineer; agree the timing with the **Salesforce team** (≈ 4,000 runs of the reinstatement flow and customer notifications) and the contact center.
-   - **Canary**: replay first the 37 reported customers' transactions, verify in Salesforce that the payment is `Captured` and the policy `Active`; then the rest in throttled batches (≈ 4,300 upserts ≈ 3% of the daily budget with v1's per-record upsert), `APROBADA` first (coverage), watching `UNABLE_TO_LOCK_ROW` and budget.
-   - **Reconcile** (expected vs written per transaction), then complete/purge the DLQ messages and keep the export as evidence.
-3. **Customers**: contact-center call-back to the 37; Compliance/Claims informed that ≈ 4,200 Colombian policies were wrongly suspended between Sat 23:41 and the replay, so claims in that window are honoured.
+1. **Fix forward today**: normalize CO references (trim, upper-case, prefix 9-digit values; anything else parked and alerted, never guessed, A-8) and treat `INVALID_FIELD`/validation errors as **non-retryable**. Tests with the incident's references; expedited release through the normal pipeline.
+2. **Reprocess the 4,312 messages safely**:
+   - **Export, don't delete**: peek the DLQ to a protected table; the DLQ stays the source of truth until the end.
+   - **Deduplicate** by `transaccion.id` + `estado` (retries have new `notificacion_id`s).
+   - **Collapse to the latest state per transaction** (`PENDIENTE < APROBADA/RECHAZADA < REVERSADA`, then `fecha_transaccion`). `TRX-CO-5603318` has both `APROBADA` and `REVERSADA`: replayed in arrival order by v1, it could end `Captured` and **reinstate a policy whose payment was reversed**. It is written once, as `Refunded`.
+   - **Never regress Salesforce**: skip a transaction whose record has a newer `Status_Changed_At__c`.
+   - **Normalize references**; unresolvable ones go to the Colombia operations team, not to Salesforce.
+   - **Dry run** report (final statuses, normalized vs unresolved, expected reinstatements) reviewed by a second engineer; timing agreed with the **Salesforce team** (≈ 4,000 reinstatement-flow runs and customer notifications) and the contact center.
+   - **Canary**: the 37 reported customers first, verified in Salesforce (`Captured`, policy `Active`); then throttled batches, `APROBADA` first, watching `UNABLE_TO_LOCK_ROW` and the budget (≈ 4,300 calls ≈ 3%).
+   - **Reconcile** expected vs written per transaction, then purge the DLQ and keep the export as evidence.
+3. **Customers**: call back the 37; inform Compliance/Claims that ≈ 4,200 CO policies were wrongly suspended from Sat 23:41 until the replay, so claims in that window are honoured.
 
 ## 4. Prevention
 
 | What | Would have… |
 |---|---|
 | DLQ, freshness and "rejected by Salesforce" alerts **per country from one IaC template** | paged at 23:41 Saturday instead of 08:12 Monday |
-| Reference normalization/validation at intake, with a `referenceStatus` metric and an alert on its ratio | avoided the incident; at least detected the format change in minutes |
-| Error classification: data errors are not retried, retryable ones use exponential backoff | saved ≈ 39,000 Salesforce calls and protected the shared org budget |
+| Reference normalization at intake + alert on the `referenceStatus` ratio | avoided it, or detected the format change in minutes |
+| Error classification (data errors never retried) and exponential backoff | saved ≈ 39,000 calls of the shared budget |
 | Latest-state sync with a precedence rule (ADR-0003) | made the replay safe by construction |
-| Provider changelog review as a squad ritual (owner per provider, calendar of effective dates) and a contract test against each provider's sandbox before the effective date | caught Andina 2.3 the week before |
-| Budget alert at 50% of the Salesforce API budget | warned on Sunday |
+| Provider changelog review (owner per provider, calendar of effective dates) + contract test against the sandbox | caught Andina 2.3 the week before |
+| Budget alert at 50% | warned on Sunday |
 
-Blameless post-incident review within 5 working days; each action item with an owner and a date.
+Blameless post-incident review within 5 working days; every action item with an owner and a date.
