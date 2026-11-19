@@ -117,7 +117,8 @@ class QuetzalAdapterTest {
         void rejectsMissingOrMalformedHeaders() {
             Instant now = QZ_SUCCEEDED.signedAt();
             for (String header : new String[] {null, "", "v1=abc", "t=1795888803", "t=abc,v1=00",
-                    "t=1795888803,v1=not-hex", "garbage", "t=1795888803,t=1795888803,v1=00"}) {
+                    "t=1795888803,v1=not-hex", "garbage", "t=1795888803,t=1795888803,v1=00",
+                    QZ_SUCCEEDED.headers().getFirst("Quetzal-Signature") + ",=x"}) {
                 HttpHeaders headers = new HttpHeaders();
                 if (header != null) {
                     headers.add("Quetzal-Signature", header);
@@ -186,6 +187,19 @@ class QuetzalAdapterTest {
         void retriedDeliveryHasTheSameIdempotencyKey() {
             assertThat(adapter.toCanonical(QZ_SUCCEEDED.body()).idempotencyKey())
                     .isEqualTo(adapter.toCanonical(QZ_SUCCEEDED.body()).idempotencyKey());
+        }
+
+        @Test
+        void servesMexico() {
+            assertThat(adapter.country()).isEqualTo("MX");
+        }
+
+        @Test
+        void missingPaymentMethodIsOtherNotAnError() {
+            byte[] body = new String(QZ_SUCCEEDED.body(), StandardCharsets.UTF_8)
+                    .replace("\"type\": \"card\"", "\"kind\": \"card\"").getBytes(StandardCharsets.UTF_8);
+
+            assertThat(adapter.toCanonical(body).paymentMethodType()).isEqualTo(PaymentMethodType.OTHER);
         }
 
         @Test

@@ -52,8 +52,11 @@ public final class PaymentStatePrecedence {
             return Decision.APPLY;
         }
         int byRank = Integer.compare(incoming.status().rank(), current.status().rank());
-        if (byRank != 0) {
-            return byRank > 0 ? Decision.APPLY : Decision.SUPERSEDED;
+        if (byRank > 0) {
+            return Decision.APPLY;
+        }
+        if (byRank < 0) {
+            return Decision.SUPERSEDED;
         }
         if (incoming.status() == current.status()) {
             return refunded(incoming).compareTo(refunded(current)) > 0 ? Decision.APPLY : Decision.DUPLICATE;

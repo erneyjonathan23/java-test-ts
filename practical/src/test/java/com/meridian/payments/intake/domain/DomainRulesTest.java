@@ -62,6 +62,12 @@ class DomainRulesTest {
         }
 
         @Test
+        void zeroIsAValidAmount() {
+            assertThat(Amounts.fromMinorUnits(0, "MXN")).isEqualTo(new Money("0.00", "MXN"));
+            assertThat(Amounts.fromMajorUnits(BigDecimal.ZERO, "CLP")).isEqualTo(new Money("0", "CLP"));
+        }
+
+        @Test
         void neverRoundsSilently() {
             assertThatThrownBy(() -> Amounts.fromMajorUnits(new BigDecimal("45990.50"), "CLP"))
                     .isInstanceOf(MalformedNotificationException.class);
@@ -70,6 +76,7 @@ class DomainRulesTest {
         @Test
         void rejectsNegativeAndUnknownCurrencies() {
             assertThatThrownBy(() -> Amounts.fromMinorUnits(-1, "MXN")).isInstanceOf(MalformedNotificationException.class);
+            assertThatThrownBy(() -> Amounts.fromMajorUnits(new BigDecimal("-0.01"), "COP")).isInstanceOf(MalformedNotificationException.class);
             assertThatThrownBy(() -> Amounts.fromMinorUnits(100, "USD")).isInstanceOf(UnsupportedNotificationException.class);
         }
     }

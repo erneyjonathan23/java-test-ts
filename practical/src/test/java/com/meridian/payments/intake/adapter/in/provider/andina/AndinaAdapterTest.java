@@ -190,6 +190,13 @@ class AndinaAdapterTest {
         }
 
         @Test
+        void servesColombiaAndToleratesAMissingPaymentMethod() {
+            assertThat(adapter.country()).isEqualTo("CO");
+            PremiumPaymentData data = adapter.toCanonical(replace(AN_APPROVED.body(), "\"medio_pago\": \"PSE\",", ""));
+            assertThat(data.paymentMethodType()).isEqualTo(PaymentMethodType.OTHER);
+        }
+
+        @Test
         void unknownStateIsRejectedNotDefaultedToPending() {
             assertThatThrownBy(() -> adapter.toCanonical(replace(AN_APPROVED.body(), "\"APROBADA\"", "\"EN_DISPUTA\"")))
                     .isInstanceOf(UnsupportedNotificationException.class);

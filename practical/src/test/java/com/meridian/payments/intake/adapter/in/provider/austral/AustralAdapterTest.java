@@ -105,6 +105,11 @@ class AustralAdapterTest {
         }
 
         @Test
+        void servesChile() {
+            assertThat(adapter.country()).isEqualTo("CL");
+        }
+
+        @Test
         void clpWithDecimalsIsRejectedNotRounded() {
             assertThatThrownBy(() -> adapter.toCanonical(replace(AU_CONFIRMED.body(), "\"45990\"", "\"45990.50\"")))
                     .isInstanceOf(MalformedNotificationException.class);
