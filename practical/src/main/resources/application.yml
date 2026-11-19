@@ -7,6 +7,10 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  threads:
+    # Java 21 virtual threads for request handling: blocking I/O (SQL, Service Bus) without thread-pool sizing.
+    virtual:
+      enabled: true
 
 server:
   port: 8080
@@ -16,6 +20,8 @@ server:
 
 intake:
   max-body-bytes: 65536
+  # Hard limit for publishing an event; must stay below the strictest provider timeout (Andina 5 s).
+  publish-timeout: 3s
   # Secrets are NEVER written here. Locally they come from environment variables
   # (INTAKE_SECRETS_QUETZAL_WEBHOOK, INTAKE_SECRETS_ANDINA_WEBHOOK, comma-separated: current,next);
   # in Azure from Key Vault through the managed identity.
@@ -27,6 +33,8 @@ management:
         include: health
 
 logging:
-  pattern:
-    # correlationId on every line; payloads are never logged.
-    level: "%5p [correlationId=%X{correlationId:-}]"
+  # JSON logs (Elastic Common Schema) for Log Analytics; MDC fields such as correlationId are included
+  # automatically. Payloads are never logged.
+  structured:
+    format:
+      console: ecs

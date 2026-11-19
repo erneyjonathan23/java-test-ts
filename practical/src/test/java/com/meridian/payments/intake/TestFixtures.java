@@ -15,8 +15,8 @@ import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 
-import com.meridian.payments.intake.provider.support.Hmac;
-import com.meridian.payments.intake.provider.support.SecretProvider;
+import com.meridian.payments.intake.adapter.in.provider.support.Hmac;
+import com.meridian.payments.intake.application.port.out.SecretProvider;
 
 /**
  * Provider samples and test vectors from reference/providers (read byte for byte from the repository,
