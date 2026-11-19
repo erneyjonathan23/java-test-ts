@@ -1,0 +1,100 @@
+# Reusable deployment of one environment. Called by cd.yml for dev, test and prod.
+name: deploy-env
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image-tag:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    # what-if runs BEFORE the environment approval, so reviewers approve a known infrastructure diff.
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}-plan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: What-if
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          az deployment group what-if \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --parameters "infra/env/${{ inputs.environment }}.bicepparam" \
+            --result-format FullResourcePayloads --no-pretty-print > whatif.json
+          {
+            echo "### Infrastructure changes for ${{ inputs.environment }}"
+            jq -r '.changes[] | "- \(.changeType): \(.resourceId)"' whatif.json
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Deleting resources is never automatic.
+          if jq -e '.changes[] | select(.changeType=="Delete")' whatif.json > /dev/null; then
+            echo "::error::What-if contains deletions; requires a manual, reviewed change."; exit 1
+          fi
+
+  deploy:
+    needs: plan
+    runs-on: ubuntu-latest
+    # Protection rules live on the GitHub environment: required reviewers for test/prod, prod restricted to main.
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy infrastructure and the new revision (0% traffic for the intake)
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
+        run: |
+          az deployment group create \
+            --name "payments-${{ inputs.image-tag }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --parameters "infra/env/${{ inputs.environment }}.bicepparam"
+
+  migrate-and-smoke:
+    # Private endpoints: data-plane steps run on a self-hosted runner inside the environment's VNet.
+    needs: deploy
+    runs-on: [self-hosted, payments, '${{ inputs.environment }}']
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Database migrations (expand/contract, backward compatible) and grants
+        run: |
+          flyway -url="jdbc:sqlserver://${{ vars.SQL_SERVER }};databaseName=payments;authentication=ActiveDirectoryDefault" \
+                 -locations=filesystem:db/migrations migrate
+          sqlcmd -S "${{ vars.SQL_SERVER }}" -d payments --authentication-method ActiveDirectoryDefault \
+                 -v intakeIdentityName="id-pay-${{ inputs.environment }}-intake" \
+                    recorderIdentityName="id-pay-${{ inputs.environment }}-recorder" \
+                    opsIdentityName="id-pay-${{ inputs.environment }}-ops" \
+                 -i infra/sql/grants.sql
+      - name: Smoke test the new intake revision (health + signature rejection), then shift traffic
+        run: |
+          REVISION=$(az containerapp revision list -g "${{ vars.RESOURCE_GROUP }}" -n "ca-pay-${{ inputs.environment }}-intake" \
+                     --query "sort_by([?properties.active], &properties.createdTime)[-1].name" -o tsv)
+          FQDN=$(az containerapp revision show -g "${{ vars.RESOURCE_GROUP }}" -n "ca-pay-${{ inputs.environment }}-intake" \
+                 --revision "$REVISION" --query properties.fqdn -o tsv)
+          curl --fail --max-time 5 "https://$FQDN/actuator/health/readiness"
+          # An unsigned notification must be rejected: proves verification is on in this revision.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+                 -d '{}' "https://$FQDN/webhooks/andina")" = "401"
+          az containerapp ingress traffic set -g "${{ vars.RESOURCE_GROUP }}" -n "ca-pay-${{ inputs.environment }}-intake" \
+             --revision-weight "$REVISION=100"

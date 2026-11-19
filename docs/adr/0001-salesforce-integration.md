@@ -30,7 +30,7 @@ A queue consumer upserts one record per message.
 ### Option 3 — Asynchronous, latest-state sync in batches (composite upsert of up to 200 records)
 Events update a local `payment_state`; a single sync worker periodically sends the latest state of changed payments to Salesforce with `PATCH /composite/sobjects/Premium_Payment__c/Payment_Key__c` (`allOrNone: false`).
 - Pros: calls bounded by time (≤ 1 per 5 s cycle under normal load ⇒ ≤ ~17k/day, ~12% of the budget) instead of by volume; 250 records/s capacity with 5 concurrent requests; per-record results let us retry only what is retryable; writing the current state from a single writer makes ordering correct by construction; Salesforce outages just accumulate dirty rows.
-- Cons: up to 5 s of added latency; a local state store to operate; batch error handling is more complex (partial failures); a single active writer must be made highly available (lease + fast restart).
+- Cons: up to 5 s of added latency; a local state store to operate; batch error handling is more complex (partial failures); a single active writer must be made highly available (SQL application lock + fast restart).
 
 ### Option 4 — Salesforce Platform Events / Pub/Sub API, or Bulk API 2.0
 - Platform Events: Salesforce would own the upsert logic in Apex/flows; event allocations are another limited, shared budget and the payments squad does not own the org. Bulk API 2.0: asynchronous jobs with minutes of latency, designed for large volumes, not for a 5-minute freshness target. **Rejected** for now (Bulk API 2.0 is kept as the mechanism for large backfills/reconciliation).
@@ -50,6 +50,6 @@ Events update a local `payment_state`; a single sync worker periodically sends t
 - Positive: the API budget is predictable and independent of duplicates and outages; Salesforce outages never lose or reorder payments; one record per payment by design (upsert by external id).
 - Negative: freshness has a floor of ~5–11 s; more moving parts than v1 (state table, leader election); partial-batch failures need careful handling and tests; the 99.5%-in-1-hour target cannot be guaranteed when Salesforce outages last longer than 60 minutes (reported in OPERATIONS.md).
 - Risks and mitigation:
-  - *Single writer stalls* → lease expiry 30 s, Container Apps restarts; alert when the oldest dirty row is older than 2 minutes.
+  - *Single writer stalls* → the SQL application lock is released when the replica dies and another replica takes over; Container Apps restarts the failed one; alert when the oldest dirty row is older than 2 minutes.
   - *Salesforce validation rule changes reject records* (INC-0412 type) → per-country alert on `NEEDS_ATTENTION` rate, and the reference normalization in the intake.
   - *The flow on `Premium_Payment__c` slows down 200-record batches* → batch size is configuration; reduce to 50 if p95 > 10 s, agreed with the Salesforce team.

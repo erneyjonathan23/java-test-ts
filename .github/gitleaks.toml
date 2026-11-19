@@ -1,0 +1,12 @@
+# Secret scanning configuration.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fictional SANDBOX secrets published by the assessment, and the PR under review (whose leaked secret is a finding of the review)."
+paths = [
+  '''^reference/''',
+  '''^pr-review/''',
+  '''^practical/src/test/''',
+  '''^practical/README\.md$''',
+]

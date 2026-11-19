@@ -25,10 +25,10 @@ Each event is applied to `payment_state` only if its status ranks higher (`PENDI
 
 ## Decision
 
-**Option 3.** The precedence function is a pure, unit-tested function shared by recorder and replay tooling. The writer is a single active instance chosen through a blob lease (30 s, renewed every 10 s); its throughput (≈ 250 records/s) is far above the 40/s peak.
+**Option 3.** The precedence function is a pure, unit-tested function shared by recorder and replay tooling. The writer is a single active instance chosen through an Azure SQL application lock (`sp_getapplock` held by the sync loop's session; if the replica dies, the session ends and another replica takes the lock within seconds); its throughput (≈ 250 records/s) is far above the 40/s peak.
 
 ## Consequences
 
 - Positive: FR5 holds by construction; replays are always safe; Salesforce is written from facts, not from event order.
 - Negative: a non-standard lifecycle (e.g. a provider that can re-capture after a refund) would need a new rule; `FAILED` ↔ `CAPTURED` conflicts on the same transaction are resolved by time and flagged, which is a judgment call.
-- Risks and mitigation: *clock skew between provider timestamps* only matters for equal-rank conflicts, which are logged as anomalies for review; *leader stalls* are covered by the lease expiry and an alert on the age of the oldest dirty row.
+- Risks and mitigation: *clock skew between provider timestamps* only matters for equal-rank conflicts, which are logged as anomalies for review; *leader stalls* are covered by the lock hand-over and an alert on the age of the oldest dirty row.

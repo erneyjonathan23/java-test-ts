@@ -31,7 +31,7 @@ flowchart LR
   subgraph AZURE["Trust zone 2 · Azure (VNet, private endpoints, managed identities)"]
     direction TB
     INTAKE["payments-intake<br/>Container App<br/>provider adapters"]
-    SB[("Service Bus Standard<br/>topic premium-payment-events<br/>+ DLQs")]
+    SB[("Service Bus (Premium in prod)<br/>topic premium-payment-events<br/>+ DLQs")]
     REC["payments-recorder<br/>Container App<br/>state rule + Salesforce sync"]
     SQL[("Azure SQL Database<br/>inbound_notification<br/>payment_state")]
     KV["Key Vault<br/>provider webhook secrets<br/>Salesforce client secret"]
@@ -236,7 +236,7 @@ An incoming event is applied when `rank(new) > rank(current)`, or `rank(new) == 
 
 Examples: `REVERSADA` arriving before `APROBADA` → the payment is created as `REFUNDED`; the late `APROBADA` is superseded and Salesforce never shows a refunded payment as captured (FR5). A retried `PENDIENTE` after `APROBADA` is superseded.
 
-Salesforce is then written from the **current state**, never from the event, by a single active sync worker (leader election through a blob lease). Two workers can therefore never race and write an older state after a newer one; a row that changes while it is being written stays dirty and is written again in the next cycle. See ADR-0003 for the alternatives (Service Bus sessions, conditional writes in Salesforce).
+Salesforce is then written from the **current state**, never from the event, by a single active sync worker (leader election with an Azure SQL application lock, `sp_getapplock`, held by the sync loop's session). Two workers can therefore never race and write an older state after a newer one; a row that changes while it is being written stays dirty and is written again in the next cycle. See ADR-0003 for the alternatives (Service Bus sessions, conditional writes in Salesforce).
 
 ## 6. Error handling
 
@@ -272,7 +272,7 @@ Salesforce is then written from the **current state**, never from the event, by 
 - **API budget:** the worst case is bounded by the cycle count, not by volume: 86,400 s / 5 s = 17,280 calls/day, plus ≈ 12 token requests. Retries during a Salesforce outage do not multiply calls because the circuit breaker stops calling (probe every 30 s ⇒ ≤ 180 calls in a 90 min outage). A hard guard stops the worker at **80% of the 150,000 budget** (rolling 24 h, counted in SQL) and pages.
 - **Salesforce outage (97%):** during a 90-minute outage at the busiest peak hour (≈ 5/s) about 27,000 records accumulate in SQL; they drain in ≈ 2 minutes (≈ 135 calls).
 - **Freshness (NFR2):** normal path latency is intake (< 0.2 s) + Service Bus (< 1 s) + recorder (< 1 s) + up to 5 s cycle + composite p95 4 s ≈ **11 s**. Only notifications that arrive during a Salesforce outage miss 5 minutes. 97% availability is ≈ 22 h of downtime a month (≈ 3% of the time), so **95% within 5 minutes is met** as long as Meridian's own components are healthy. **99.5% within 1 hour is at risk**: in an outage longer than 60 minutes, every notification received in its first `(duration − 60)` minutes misses the hour. If the 22 h came as ~15 windows of 90 minutes, ≈ 1% of payments would miss 1 h. This cannot be fixed by the integration; it is reported as an SLO risk in [`OPERATIONS.md`](../operations/OPERATIONS.md) and should be agreed with the Salesforce team (A-12).
-- **Azure side:** intake 2–10 replicas (0.5 vCPU each, ~100 req/s per replica), recorder 1–5 replicas scaled on subscription backlog (KEDA). Service Bus Standard handles thousands of msg/s; Azure SQL writes are ≈ 3 per notification (< 150 writes/s at burst).
+- **Azure side:** intake 2–10 replicas (0.5 vCPU each, ~100 req/s per replica), recorder 1–5 replicas scaled on subscription backlog (KEDA). Service Bus (1 Premium messaging unit in prod) handles thousands of msg/s; Azure SQL writes are ≈ 3 per notification (< 150 writes/s at burst).
 
 ## 8. Data persisted outside Salesforce
 

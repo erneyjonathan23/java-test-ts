@@ -1,0 +1,11 @@
+# PSRule for Azure: expand Bicep through the parameter files and evaluate Well-Architected rules.
+configuration:
+  AZURE_BICEP_FILE_EXPANSION: true
+  AZURE_BICEP_PARAMS_FILE_EXPANSION: true
+input:
+  pathIgnore:
+    - '**'
+    - '!infra/env/*.bicepparam'
+execution:
+  # Fail the job on rule failures, not on rules that could not be evaluated.
+  unprocessedObject: Ignore

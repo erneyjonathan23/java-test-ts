@@ -1,0 +1,81 @@
+# CD: defined, NOT executed in this assessment.
+# Build once, promote the same immutable image (by digest) and the same Bicep through dev -> test -> prod.
+# Authentication to Azure: GitHub OIDC federated credentials on an Entra app registration per environment
+# (no client secret stored anywhere). AZURE_* values below are identifiers, not secrets, kept as environment variables.
+# Controls:
+#   - only commits on main that passed CI can be deployed (workflow_run on ci success)
+#   - GitHub environments: 'test' and 'prod' require reviewers; 'prod' only from main, with a wait timer
+#   - infrastructure changes are shown as what-if in the job summary BEFORE the approval of each environment
+#   - blue/green on the intake: the new revision gets 0% traffic until its smoke test passes; old revision kept for rollback
+name: cd
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for azure/login
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: build
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw -B -DskipTests package # tests already passed in CI for this exact commit
+        working-directory: practical
+      - id: meta
+        run: echo "tag=${{ github.event.workflow_run.head_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Build, push and generate SBOM
+        run: |
+          az acr login --name "${{ vars.ACR_NAME }}"
+          IMAGE="${{ vars.ACR_NAME }}.azurecr.io/payments-intake:${{ steps.meta.outputs.tag }}"
+          docker build -t "$IMAGE" practical
+          docker push "$IMAGE"
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ vars.ACR_NAME }}.azurecr.io/payments-intake:${{ steps.meta.outputs.tag }}
+
+  dev:
+    needs: build-and-push
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: dev
+      image-tag: ${{ needs.build-and-push.outputs.image-tag }}
+
+  test:
+    needs: [build-and-push, dev]
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: test
+      image-tag: ${{ needs.build-and-push.outputs.image-tag }}
+
+  prod:
+    needs: [build-and-push, test]
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: prod
+      image-tag: ${{ needs.build-and-push.outputs.image-tag }}
