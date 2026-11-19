@@ -17,7 +17,7 @@
 What was verified by **executing** something, not by reading AI output:
 
 - **Provider test vectors**: all 9 signatures in `reference/providers/*` were recomputed with an independent Python script (standard `hmac`/`hashlib`) before writing any Java. This revealed that the vectors only match with LF line endings: a Windows checkout converts the samples to CRLF and every signature fails. Fixed with `.gitattributes` (`reference/** -text`).
-- **Part B**: `./mvnw test` runs 119 tests, all passing (Java 21.0.13, Spring Boot 3.5.16). They use the providers' samples and vectors byte for byte, and every canonical event produced from the samples is validated against `premium-payment.schema.json` by an independent JSON Schema validator (networknt). One test checks that no personal data from the samples appears in the application logs. The ArchUnit rules were checked to fail by temporarily adding a Spring annotation to the use case (then reverted).
+- **Part B**: `./mvnw test` runs 129 tests, all passing (Java 21.0.13, Spring Boot 3.5.16). They use the providers' samples and vectors byte for byte, and every canonical event produced from the samples is validated against `premium-payment.schema.json` by an independent JSON Schema validator (networknt). One test checks that no personal data from the samples appears in the application logs. The ArchUnit rules were checked to fail by temporarily adding a Spring annotation to the use case (then reverted).
 - **Part C**: `az bicep lint` (0 warnings), `az bicep build` and `az bicep build-params` for dev/test/prod pass (Bicep 0.49.2). Nothing was deployed.
 - Capacity numbers in the design were recomputed by hand from NFR1 and `API_CONSTRAINTS.md`.
 - INC-0412 analysis was cross-checked against the incident data (e.g. 43,120 `400` responses = 4,312 dead-lettered messages × 10 deliveries; first DLQ message 41 minutes after Andina 2.3 took effect).
@@ -36,6 +36,9 @@ Concrete corrections made during the work, after a check failed or a closer read
 - A final consistency review found that the CD pipeline ran Flyway migrations from a `db/migrations` folder that did not exist; the migration was added from the design's schema.
 - The incident response exceeded the two-page limit; it was shortened without removing content.
 - The "concurrent first deliveries can both publish" gap was closed with a lease on the idempotency claim, covered by a 32-thread test.
+- A senior-style self-review found that the Container Apps probes (`/actuator/health/liveness|readiness`) would return 404 outside Kubernetes and restart the app in a loop; probes were enabled and a test now guards the paths.
+- Mutation testing (PIT) showed 9 untested edge cases (zero amounts, an empty signature-header key, missing payment method) and one equivalent mutant caused by a redundant condition; tests were added and the condition simplified, reaching 100% of mutants killed.
+- Jackson annotations had leaked into the domain; moved to a mixin in the messaging adapter so the domain is plain Java.
 - An integration test used `austral` as the "unknown provider" example; it became a real provider and the test was changed.
 - A generated test used `Set.of(...)` with duplicate elements and failed at runtime; corrected.
 - Shell heredocs failed to write some Java files on Windows; files were rewritten with the editor tool and recompiled.

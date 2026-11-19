@@ -147,6 +147,8 @@ sequenceDiagram
 
 Why the intake answers only **after** the publish: a notification is *accepted* when Meridian returns `2xx` (NFR3). Publishing first and acknowledging later means the only possible failure mode is a duplicate (crash between publish and response), which idempotency absorbs; the opposite order could lose payments.
 
+Why not a transactional outbox: an outbox solves "database write and message publish must both happen". Here the provider is the outbox: until we answer `2xx` it keeps the notification and retries (24 h to 3 days), and we answer only after the broker has the message. A local outbox table would add a relay process and a second failure point without improving NFR3.
+
 Time budget against the strictest provider timeout (Andina, 5 s): signature + mapping < 5 ms, SQL claim p99 ≈ 20 ms, Service Bus send p99 ≈ 100 ms; the send has a hard 3 s timeout so the intake always answers before 5 s.
 
 ## 4. Canonical payment event

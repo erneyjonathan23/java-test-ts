@@ -20,7 +20,7 @@ cd practical
 ./mvnw test          # Windows: mvnw.cmd test
 ```
 
-**119 tests, all green.** The tests read the provider samples **byte for byte** from `../reference/providers/` and the event schema from `../docs/api/`, so they must run from a checkout of the whole repository. The repository's `.gitattributes` keeps the sample files from being converted to CRLF on Windows: a change of line endings breaks the HMAC test vectors, exactly as it would break a real provider signature.
+**129 tests, all green.** Line coverage 93%, branch coverage 82% (JaCoCo report in `target/site/jacoco`). **Mutation testing (PIT) kills 100% of the 118 mutants** in the domain and the provider adapters, the code that decides money and authenticity: `./mvnw test-compile org.pitest:pitest-maven:mutationCoverage`. The tests read the provider samples **byte for byte** from `../reference/providers/` and the event schema from `../docs/api/`, so they must run from a checkout of the whole repository. The repository's `.gitattributes` keeps the sample files from being converted to CRLF on Windows: a change of line endings breaks the HMAC test vectors, exactly as it would break a real provider signature.
 
 Run locally (stubs only, nothing external is called):
 
@@ -49,7 +49,7 @@ com.meridian.payments.intake
 │   ├── in/web/                 WebhookController (raw bytes), CorrelationIdFilter, RequestSizeLimitFilter, ProblemHandler
 │   ├── in/provider/            quetzal/, andina/, austral/ + support/ (Hmac constant time, strict JsonFields)
 │   └── out/                    messaging/TimeLimitedEventPublisher, metrics/MicrometerIntakeMetrics, stub/ (in-memory)
-└── config/IntakeConfiguration  composition root: the only place where Spring meets domain and application
+└── config/                     IntakeConfiguration (composition root) and IntakeProperties (typed, validated settings)
 ```
 
 The rules are **enforced by `ArchitectureTest` (ArchUnit) on every build**: the domain depends only on the JDK; the application layer does not depend on Spring, Jakarta, Micrometer, Jackson or Azure; adapters are reached only from `config`; provider adapters do not depend on each other; inbound adapters do not know outbound ones. Breaking a rule fails the build. This was checked by temporarily adding `@Service` to `IntakeService`.
@@ -75,6 +75,8 @@ Adding a provider = one `ProviderAdapter` class + its secret. `IntakeService`, t
 | Oversized (rejected before reading when `Content-Length` is declared), malformed, unknown provider; unsafe correlation ids replaced (log injection) | NFR6 | `WebhookIntakeTest` |
 | No personal data in the application logs, including rejected requests | NFR6 | `personalDataNeverReachesTheLogs` |
 | Hexagonal dependency rules | NFR9 | `ArchitectureTest` |
+| Unsafe settings stop the service at startup (publish timeout above 4 s, lease not longer than the timeout) | NFR4 | `IntakePropertiesTest` |
+| Health probe endpoints used by Container Apps exist | Ops | `containerAppsProbeEndpointsExist` |
 
 ## What is stubbed and how
 
