@@ -26,7 +26,8 @@ class ArchitectureTest {
             .layer("Application").definedBy(BASE + ".application..")
             .layer("Adapters").definedBy(BASE + ".adapter..")
             .layer("Config").definedBy(BASE + ".config..")
-            .whereLayer("Config").mayNotBeAccessedByAnyLayer()
+            // Adapters may read typed settings (IntakeProperties); domain and application may not.
+            .whereLayer("Config").mayOnlyBeAccessedByLayers("Adapters")
             .whereLayer("Adapters").mayOnlyBeAccessedByLayers("Config")
             .whereLayer("Application").mayOnlyBeAccessedByLayers("Adapters", "Config")
             .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Adapters", "Config");
@@ -35,8 +36,7 @@ class ArchitectureTest {
     static final ArchRule domainIsPlainJava = classes()
             .that().resideInAPackage(BASE + ".domain..")
             .should().onlyDependOnClassesThat()
-            // Jackson annotations only name the CloudEvents attributes; they carry no behaviour.
-            .resideInAnyPackage(BASE + ".domain..", "java..", "com.fasterxml.jackson.annotation..");
+            .resideInAnyPackage(BASE + ".domain..", "java..");
 
     @ArchTest
     static final ArchRule applicationIsFrameworkFree = noClasses()

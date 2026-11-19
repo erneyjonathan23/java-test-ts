@@ -1,6 +1,5 @@
 package com.meridian.payments.intake.adapter.in.web;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.meridian.payments.intake.application.IntakeService;
 import com.meridian.payments.intake.application.RequestHeaders;
+import com.meridian.payments.intake.config.IntakeProperties;
 
 /**
  * Inbound HTTP adapter (contract: docs/api/webhooks.openapi.yaml). The body is taken as raw bytes:
@@ -24,9 +24,9 @@ public class WebhookController {
     private final IntakeService intake;
     private final int maxBodyBytes;
 
-    public WebhookController(IntakeService intake, @Value("${intake.max-body-bytes:65536}") int maxBodyBytes) {
+    public WebhookController(IntakeService intake, IntakeProperties properties) {
         this.intake = intake;
-        this.maxBodyBytes = maxBodyBytes;
+        this.maxBodyBytes = properties.maxBodyBytes();
     }
 
     @PostMapping("/webhooks/{provider}")

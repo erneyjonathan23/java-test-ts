@@ -4,28 +4,23 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-/** CloudEvents 1.0 envelope (structured JSON mode) around {@link PremiumPaymentData}. */
+/** CloudEvents 1.0 envelope around {@link PremiumPaymentData}. JSON names live in the messaging adapter. */
 public record PremiumPaymentEvent(
-        @JsonProperty("specversion") String specVersion,
+        String specVersion,
         String id,
         String source,
         String type,
         Instant time,
-        @JsonProperty("datacontenttype") String dataContentType,
-        @JsonProperty("dataschema") String dataSchema,
+        String dataContentType,
+        String dataSchema,
         String subject,
-        @JsonProperty("correlationid") String correlationId,
+        String correlationId,
         PremiumPaymentData data) {
 
     public static final String TYPE = "com.meridian.payments.premium-payment.status-changed";
     public static final String DATA_SCHEMA_BASE = "https://schemas.meridian.example/payments/premium-payment/";
 
-    /**
-     * Wraps the payload. The event id is derived from the idempotency key, so the same business
-     * event keeps the same id even if it has to be published again.
-     */
+    /** Wraps the payload; the id derives from the idempotency key, so a republished event keeps its id. */
     public static PremiumPaymentEvent wrap(PremiumPaymentData data, String providerId, Instant acceptedAt,
                                            String correlationId) {
         String id = UUID.nameUUIDFromBytes(

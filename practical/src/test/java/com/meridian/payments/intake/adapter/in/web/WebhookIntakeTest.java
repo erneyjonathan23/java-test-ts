@@ -286,6 +286,15 @@ class WebhookIntakeTest {
     }
 
     @Test
+    void containerAppsProbeEndpointsExist() throws Exception {
+        // infra/modules/containerapps.bicep probes these paths; a 404 would restart the app in a loop.
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/actuator/health/liveness"))
+                .andExpect(status().isOk());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/actuator/health/readiness"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void unknownProviderIsNotFound() throws Exception {
         send("unknownpay", QZ_SUCCEEDED.body(), QZ_SUCCEEDED.headers()).andExpect(status().isNotFound());
     }

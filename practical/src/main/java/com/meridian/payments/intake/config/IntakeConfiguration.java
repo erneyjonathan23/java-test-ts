@@ -1,18 +1,18 @@
 package com.meridian.payments.intake.config;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 
+import com.meridian.payments.intake.adapter.out.messaging.CloudEventJson;
 import com.meridian.payments.intake.adapter.out.messaging.TimeLimitedEventPublisher;
 import com.meridian.payments.intake.adapter.out.metrics.MicrometerIntakeMetrics;
 import com.meridian.payments.intake.adapter.out.stub.EnvironmentSecretProvider;
@@ -37,6 +37,7 @@ import io.micrometer.core.instrument.MeterRegistry;
  * (not part of this deliverable), so a stubbed build can never start silently in Azure.
  */
 @Configuration
+@EnableConfigurationProperties(IntakeProperties.class)
 public class IntakeConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(IntakeConfiguration.class);
@@ -44,6 +45,12 @@ public class IntakeConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    /** CloudEvents JSON names for the canonical event (picked up by Spring Boot's ObjectMapper). */
+    @Bean
+    com.fasterxml.jackson.databind.Module cloudEventJsonModule() {
+        return CloudEventJson.module();
     }
 
     @Bean
@@ -65,9 +72,8 @@ public class IntakeConfiguration {
     /** Every publication is time-boxed, whatever the broker adapter is. */
     @Bean
     @Primary
-    EventPublisher eventPublisher(BrokerPublisher broker,
-                                  @Value("${intake.publish-timeout:3s}") Duration timeout) {
-        return new TimeLimitedEventPublisher(broker.publisher(), timeout);
+    EventPublisher eventPublisher(BrokerPublisher broker, IntakeProperties properties) {
+        return new TimeLimitedEventPublisher(broker.publisher(), properties.publishTimeout());
     }
 
     /** Wrapper so the broker adapter is not itself a candidate for injection as {@link EventPublisher}. */
@@ -90,9 +96,9 @@ public class IntakeConfiguration {
         }
 
         @Bean
-        InMemoryIdempotencyStore idempotencyStore(@Value("${intake.claim-lease:10s}") Duration lease) {
+        InMemoryIdempotencyStore idempotencyStore(IntakeProperties properties) {
             log.warn("Using STUB in-memory idempotency store (no Azure SQL)");
-            return new InMemoryIdempotencyStore(lease);
+            return new InMemoryIdempotencyStore(properties.claimLease());
         }
 
         @Bean

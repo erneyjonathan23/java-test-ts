@@ -7,13 +7,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.meridian.payments.intake.config.IntakeProperties;
 
 /**
  * Rejects webhook requests whose declared {@code Content-Length} exceeds the limit before the body is read,
@@ -26,8 +27,8 @@ public class RequestSizeLimitFilter extends OncePerRequestFilter {
 
     private final long maxBodyBytes;
 
-    public RequestSizeLimitFilter(@Value("${intake.max-body-bytes:65536}") long maxBodyBytes) {
-        this.maxBodyBytes = maxBodyBytes;
+    public RequestSizeLimitFilter(IntakeProperties properties) {
+        this.maxBodyBytes = properties.maxBodyBytes();
     }
 
     @Override

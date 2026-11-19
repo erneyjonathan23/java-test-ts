@@ -7,6 +7,8 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 10s
   threads:
     # Java 21 virtual threads for request handling: blocking I/O (SQL, Service Bus) without thread-pool sizing.
     virtual:
@@ -14,6 +16,8 @@ spring:
 
 server:
   port: 8080
+  # Finish in-flight webhook requests on redeploy or scale-in.
+  shutdown: graceful
   # Fail fast: the slowest provider timeout is 5 s (Andina).
   tomcat:
     connection-timeout: 4s
@@ -33,6 +37,11 @@ management:
     web:
       exposure:
         include: health
+  endpoint:
+    health:
+      # /actuator/health/liveness and /readiness for the Container Apps probes (only automatic on Kubernetes).
+      probes:
+        enabled: true
 
 logging:
   # JSON logs (Elastic Common Schema) for Log Analytics; MDC fields such as correlationId are included

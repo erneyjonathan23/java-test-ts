@@ -22,6 +22,7 @@ import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.adapter.in.provider.andina.AndinaAdapter;
 import com.meridian.payments.intake.adapter.in.provider.austral.AustralAdapter;
 import com.meridian.payments.intake.adapter.in.provider.quetzal.QuetzalAdapter;
+import com.meridian.payments.intake.adapter.out.messaging.CloudEventJson;
 import com.meridian.payments.intake.application.spi.ProviderAdapter;
 import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import com.networknt.schema.JsonSchema;
@@ -44,6 +45,7 @@ class CanonicalEventContractTest {
 
     private static final ObjectMapper MAPPER = JsonMapper.builder()
             .addModule(new JavaTimeModule())
+            .addModule(CloudEventJson.module())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .build();
 
