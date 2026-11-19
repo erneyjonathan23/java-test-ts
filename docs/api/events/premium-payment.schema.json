@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.meridian.example/payments/premium-payment/1.0/premium-payment.schema.json",
+  "title": "PremiumPaymentStatusChanged",
+  "description": "Canonical premium payment event, provider independent. CloudEvents 1.0 envelope in structured JSON mode. Version: the MAJOR version is part of 'dataschema' and of this $id (breaking changes create /2.0/); the MINOR version is in data.schemaVersion (additive, optional fields only). Consumers must ignore unknown fields and deduplicate on data.idempotencyKey (delivery is at least once and not ordered). The event never contains payer personal data.",
+  "type": "object",
+  "required": ["specversion", "id", "source", "type", "time", "datacontenttype", "dataschema", "subject", "correlationid", "data"],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Deterministic UUID (name-based) of the idempotency key: the same business event always has the same id, even if re-published."
+    },
+    "source": { "type": "string", "pattern": "^/payments-intake/[a-z0-9-]+$", "examples": ["/payments-intake/andina"] },
+    "type": { "const": "com.meridian.payments.premium-payment.status-changed" },
+    "time": { "type": "string", "format": "date-time", "description": "When Meridian accepted the notification (UTC)." },
+    "datacontenttype": { "const": "application/json" },
+    "dataschema": {
+      "type": "string",
+      "pattern": "^https://schemas\\.meridian\\.example/payments/premium-payment/1\\.[0-9]+$",
+      "description": "Schema identifier. Major version 1; the minor part mirrors data.schemaVersion."
+    },
+    "subject": { "type": "string", "description": "The paymentKey, so consumers can filter or partition by payment." },
+    "correlationid": { "type": "string", "minLength": 1, "maxLength": 64, "description": "CloudEvents extension carrying the end-to-end correlation id." },
+    "data": { "$ref": "#/$defs/PaymentData" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "Money": {
+      "type": "object",
+      "required": ["value", "currency"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]{1,3})?$",
+          "description": "Decimal amount in the MAJOR unit, as a string, with the currency's number of decimals (MXN/COP: 2, CLP: 0). Never a binary floating point number."
+        },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217, upper case." }
+      },
+      "additionalProperties": false
+    },
+    "PaymentData": {
+      "type": "object",
+      "required": [
+        "schemaVersion", "idempotencyKey", "paymentKey", "country", "provider",
+        "providerTransactionId", "providerEventId", "providerEventType",
+        "status", "statusChangedAt", "amount", "policy", "paymentMethodType"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^1\\.[0-9]+$", "examples": ["1.0"] },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Identity of the business event. QUETZAL:{id} | ANDINA:{transaccion.id}:{estado} | AUSTRAL:{eventId}."
+        },
+        "paymentKey": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(QUETZAL|ANDINA|AUSTRAL|[A-Z]+):.+$",
+          "description": "{PROVIDER}:{providerTransactionId}. Value written to Premium_Payment__c.Payment_Key__c."
+        },
+        "country": { "type": "string", "pattern": "^[A-Z]{2}$", "examples": ["MX", "CO", "CL"] },
+        "provider": { "type": "string", "pattern": "^[A-Z]+$", "examples": ["QUETZAL", "ANDINA", "AUSTRAL"] },
+        "providerTransactionId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "providerEventId": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Identifier of this delivery attempt as sent by the provider (Andina changes it on every retry)." },
+        "providerEventType": { "type": "string", "description": "Raw provider state or type, for audit." },
+        "status": { "enum": ["PENDING", "CAPTURED", "FAILED", "REFUNDED"] },
+        "statusChangedAt": { "type": "string", "format": "date-time", "description": "Time of the state change at the provider, UTC. Used to resolve ordering." },
+        "amount": { "$ref": "#/$defs/Money" },
+        "amountRefunded": { "oneOf": [{ "$ref": "#/$defs/Money" }, { "type": "null" }] },
+        "policy": {
+          "type": "object",
+          "required": ["reference", "number", "referenceStatus"],
+          "properties": {
+            "reference": { "type": "string", "maxLength": 64, "description": "Reference exactly as received from the provider." },
+            "number": { "type": ["string", "null"], "pattern": "^POL-[A-Z]{2}-[0-9]{9}$" },
+            "referenceStatus": { "enum": ["VALID", "NORMALIZED", "INVALID"] }
+          },
+          "additionalProperties": false
+        },
+        "paymentMethodType": { "enum": ["CARD", "BANK_TRANSFER", "CASH", "OTHER"] },
+        "reason": { "type": ["string", "null"], "maxLength": 80, "description": "Provider failure or reversal reason code." }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: Meridian Premium Payment Webhooks
+  version: 1.0.0
+  description: |
+    Webhook endpoints that payment providers call, published through Meridian's API Manager.
+
+    * Authenticity is proven by each provider's **HMAC signature over the raw request body**,
+      verified by `payments-intake` (the API Manager forwards the body byte for byte).
+    * A `2xx` response means the notification is **accepted**: it has been durably published.
+      Any other response means it was **not** accepted and the provider should retry.
+    * Responses never echo the request body and never contain personal data.
+    * The API Manager adds `X-Correlation-Id` when the provider does not send one, enforces a
+      64 KB body limit and per-provider rate limits, and attaches an IdP machine-to-machine token
+      when forwarding to the intake (not visible to providers).
+
+    Chile (Austral Pagos, `POST /webhooks/austral`) follows the same pattern and is designed in
+    `docs/design/SOLUTION_DESIGN.md`; it is not part of this version of the contract.
+  contact:
+    name: Payments Integration squad
+servers:
+  - url: https://api.meridian.example/payments/v1
+    description: Production (API Manager)
+  - url: https://api-test.meridian.example/payments/v1
+    description: Test (API Manager)
+tags:
+  - name: Mexico
+  - name: Colombia
+paths:
+  /webhooks/quetzal:
+    post:
+      tags: [Mexico]
+      operationId: receiveQuetzalNotification
+      summary: Quetzal Pagos (MX) charge event
+      description: |
+        Signature: `Quetzal-Signature: t=<unix>,v1=<hex>[,v1=<hex>]`, HMAC-SHA256 of `<t>.<raw_body>`.
+        Rejected when `|now − t| > 300 s`. Any matching `v1` is valid (secret rotation).
+        Retries carry the same `id`: duplicates are acknowledged with `200` and not re-published.
+        Must be answered within 10 s.
+      parameters:
+        - name: Quetzal-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: '^t=\d+(,v1=[0-9a-f]{64})+$'
+          example: t=1795888803,v1=2d07770582c02f15235ac4e027b7732beef86be103c574a1c3b988a4275f5031
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuetzalEvent'
+      responses:
+        '200': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Malformed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /webhooks/andina:
+    post:
+      tags: [Colombia]
+      operationId: receiveAndinaNotification
+      summary: Andina Pay (CO) transaction notification (API 2.3)
+      description: |
+        Signature: `X-Andina-Signature` = Base64(HMAC-SHA256(`<X-Andina-Timestamp>.<raw_body>`)).
+        Rejected when the timestamp differs from now by more than 10 minutes.
+        Retries carry a **new** `notificacion_id`; the business event is `transaccion.id` + `transaccion.estado`,
+        so a retry of an already accepted event is acknowledged with `200` and not re-published.
+        Must be answered with `200`/`204` within 5 s.
+      parameters:
+        - name: X-Andina-Timestamp
+          in: header
+          required: true
+          schema: { type: string, format: date-time }
+          example: '2026-11-28T14:03:11-05:00'
+        - name: X-Andina-Signature
+          in: header
+          required: true
+          schema: { type: string, format: byte }
+          example: MFQjfviySi6CjqbWtQcy5spKtXxHIxAvmg5W3PTzPJk=
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AndinaNotification'
+      responses:
+        '200': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Malformed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Set by the API Manager if absent; returned in every response and propagated end to end.
+      schema: { type: string, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+  headers:
+    CorrelationId:
+      description: Correlation id of this request.
+      schema: { type: string }
+  responses:
+    Accepted:
+      description: Accepted (published, or already published before — duplicate). Empty body.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+    Malformed:
+      description: Signature valid but the body is not valid JSON or misses required fields. Not accepted.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unauthenticated:
+      description: Missing, malformed or invalid signature, or timestamp outside the allowed window. Not accepted.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooLarge:
+      description: Body larger than 64 KB. Not accepted.
+    Unsupported:
+      description: Signature valid but the event type or state is unknown to this version. Not accepted; operations are alerted.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unavailable:
+      description: A dependency (broker or idempotency store) is unavailable. Not accepted; the provider must retry.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details. Never contains request data.
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        correlationId: { type: string }
+    QuetzalEvent:
+      type: object
+      description: Quetzal Pagos event, API version 2025-06-01. Unknown fields are ignored.
+      required: [id, type, created, data]
+      properties:
+        id: { type: string, example: evt_01JDQ3K8M2X7 }
+        type: { type: string, enum: [charge.succeeded, charge.failed, charge.refunded] }
+        api_version: { type: string, example: '2025-06-01' }
+        created: { type: integer, format: int64, description: Unix seconds UTC }
+        data:
+          type: object
+          required: [charge]
+          properties:
+            charge:
+              type: object
+              required: [id, amount, currency, reference]
+              properties:
+                id: { type: string }
+                amount: { type: integer, format: int64, description: Minor unit }
+                amount_refunded: { type: integer, format: int64 }
+                currency: { type: string, example: mxn }
+                status: { type: string }
+                failure_code: { type: string }
+                reference: { type: string, example: POL-MX-000412785 }
+                paid_at: { type: integer, format: int64, nullable: true }
+                refunded_at: { type: integer, format: int64, nullable: true }
+                payment_method:
+                  type: object
+                  properties:
+                    type: { type: string }
+                    token: { type: string }
+                customer:
+                  type: object
+                  description: Personal data. Read only to be discarded; never stored, logged or published.
+                  properties:
+                    email: { type: string }
+    AndinaNotification:
+      type: object
+      description: Andina Pay notification, API version 2.3. Unknown fields (e.g. `transaccion.canal`) are ignored.
+      required: [notificacion_id, fecha_notificacion, transaccion]
+      properties:
+        notificacion_id: { type: string, example: ntf-8f1c2a77 }
+        fecha_notificacion: { type: string, format: date-time }
+        transaccion:
+          type: object
+          required: [id, estado, valor, moneda, referencia, fecha_transaccion]
+          properties:
+            id: { type: string, example: TRX-CO-5521907 }
+            estado: { type: string, enum: [PENDIENTE, APROBADA, RECHAZADA, REVERSADA] }
+            valor: { type: string, pattern: '^\d+(\.\d{1,2})?$', example: '185000.00' }
+            moneda: { type: string, example: COP }
+            referencia: { type: string, description: 'As entered by the payer since 2.3; normalized by Meridian.' }
+            medio_pago: { type: string, enum: [PSE, TARJETA, EFECTIVO] }
+            fecha_transaccion: { type: string, format: date-time }
+            motivo_reverso: { type: string }
+            canal: { type: string, enum: [WEB, APP, OFICINA] }
+            pagador:
+              type: object
+              description: Personal data. Read only to be discarded; never stored, logged or published.
