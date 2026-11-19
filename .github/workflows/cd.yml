@@ -26,7 +26,10 @@ concurrency:
 
 jobs:
   build-and-push:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Runs only where Azure is configured (repository variables set). In this assessment repo it is skipped.
+    if: >-
+      vars.AZURE_CLIENT_ID != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     environment: build
     outputs:
