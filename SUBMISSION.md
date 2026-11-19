@@ -29,7 +29,7 @@ Elapsed working time on 2026-11-19 with Claude Code generating the drafts under 
 - Practical part (Part B): Java 21 (Temurin 21.0.13) + Spring Boot 3.5.16 + JUnit 5 + ArchUnit, Maven 3.10.1 wrapper; hexagonal architecture enforced by ArchUnit, 129 tests, 100% of mutants killed (PIT) in domain and provider adapters. Justified in [ADR-0002](docs/adr/0002-stack-and-data-store.md).
 - Infrastructure as code: Bicep (CLI 0.49.2), validated with `az bicep lint/build/build-params`; not deployed.
 - Pipeline: GitHub Actions — [`ci.yml`](.github/workflows/ci.yml), [`cd.yml`](.github/workflows/cd.yml), [`deploy-env.yml`](.github/workflows/deploy-env.yml).
-- CI run link (optional): <!-- link to the first CI run after pushing, if available -->
+- CI run link: https://github.com/erneyjonathan23/java-test-ts/actions/runs/44606589994 (all jobs green: build and tests, contracts, Bicep + PSRule, CodeQL and secret scan, image scan)
 
 ## Where to start reading
 
