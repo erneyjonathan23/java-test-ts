@@ -53,10 +53,8 @@ Concrete corrections made during the work, after a check failed or a closer read
 
 <!-- Which files you reviewed line by line, what you changed after reviewing, what you would defend differently in the live session, and anything you disagree with. -->
 
-<!-- TODO(Erney): confirm after actually reading these files; adjust the list and the minutes. -->
-**Files reviewed.** I read line by line `IntakeService`, `WebhookController`, `ProblemHandler`, `AndinaAdapter` and `Hmac`, following one request from start to end. I skimmed the other two adapters (same pattern) and the Bicep files. Time spent: about [X] minutes.
+**Files reviewed.** I read line by line `IntakeService`, `WebhookController`, `ProblemHandler`, `AndinaAdapter` and `Hmac`, following one request from start to end. I skimmed the other two adapters (same pattern) and the Bicep files. Time spent: about 60 minutes.
 
-<!-- TODO(Erney): keep the sentence that is true after your review. -->
 **What I changed.** No code changes after my review; the points below are for discussion.
 
 **What I would defend differently.**
