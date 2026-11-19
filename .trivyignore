@@ -1,0 +1,8 @@
+# Accepted image-scan findings. Each one says why it does not apply and expires, so it is reviewed again.
+# Fixed only in Spring Framework 7 (Spring Boot 4); the 6.2 line has no open-source patch.
+
+# SSE stream corruption with view fragments: the intake has no Server-Sent Events and no views (JSON only).
+CVE-2026-47890 exp:2027-03-31
+
+# SSRF/RCE through XsltView: the intake has no XsltView and no view rendering.
+CVE-2026-47884 exp:2027-03-31

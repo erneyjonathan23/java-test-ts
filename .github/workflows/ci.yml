@@ -142,6 +142,7 @@ jobs:
           image-ref: payments-intake:${{ github.sha }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore # accepted findings, each with a reason and an expiry date
           format: json
           output: trivy.json
           exit-code: '0'
