@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: payments-intake
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: 8080
+  # Fail fast: the slowest provider timeout is 5 s (Andina).
+  tomcat:
+    connection-timeout: 4s
+
+intake:
+  max-body-bytes: 65536
+  # Secrets are NEVER written here. Locally they come from environment variables
+  # (INTAKE_SECRETS_QUETZAL_WEBHOOK, INTAKE_SECRETS_ANDINA_WEBHOOK, comma-separated: current,next);
+  # in Azure from Key Vault through the managed identity.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  pattern:
+    # correlationId on every line; payloads are never logged.
+    level: "%5p [correlationId=%X{correlationId:-}]"
