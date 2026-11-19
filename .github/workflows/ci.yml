@@ -142,4 +142,13 @@ jobs:
           image-ref: payments-intake:${{ github.sha }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: '1'
+          format: json
+          output: trivy.json
+          exit-code: '0'
+      - name: Fail on CRITICAL/HIGH vulnerabilities with a fix
+        # One annotation per finding, so it is visible on the run page.
+        run: |
+          jq -r '.Results[]? | .Target as $t | .Vulnerabilities[]?
+            | "::error title=\(.VulnerabilityID)::\(.PkgName) \(.InstalledVersion) -> \(.FixedVersion) (\(.Severity)) in \($t)"' \
+            trivy.json | tee findings.txt
+          test ! -s findings.txt
