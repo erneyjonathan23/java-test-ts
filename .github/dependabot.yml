@@ -1,0 +1,15 @@
+# Keeps dependencies, the base image and pipeline actions patched (security fixes land as pull requests).
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /practical
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /practical
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
