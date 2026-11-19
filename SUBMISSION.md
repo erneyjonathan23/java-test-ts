@@ -7,8 +7,8 @@
 | Field | Value |
 |---|---|
 | Candidate ID (provided by your recruiter) | erneyjonathan@gmail.com |
-| Final commit SHA | <!-- SHA of the last commit, the same one you send to the recruiter --> |
-| Date and time of submission (with time zone) | <!-- e.g. 2026-11-21 18:00 UTC−5 --> |
+| Final commit SHA | `c7a5496df77dd23ed92f7e5a5c49e3e2d6243b24` (last content commit; the next commit only fills in this table) |
+| Date and time of submission (with time zone) | 2026-11-19 16:06 UTC−5 |
 
 ## Time spent
 
