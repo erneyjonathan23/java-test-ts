@@ -314,7 +314,7 @@ resource ops 'Microsoft.App/containerApps@2025-01-01' = {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: isProd ? 2 : 1
         maxReplicas: 2
       }
     }

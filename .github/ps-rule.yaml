@@ -12,6 +12,14 @@ suppression:
   Azure.ContainerApp.AvailabilityZone:
     - cae-pay-dev
     - cae-pay-test
+  # One replica in dev and test (cost); prod runs at least two of each app.
+  Azure.ContainerApp.MinReplicas:
+    - ca-pay-dev-intake
+    - ca-pay-dev-recorder
+    - ca-pay-dev-ops
+    - ca-pay-test-intake
+    - ca-pay-test-recorder
+    - ca-pay-test-ops
 execution:
   # Fail the job on rule failures, not on rules that could not be evaluated.
   unprocessedObject: Ignore

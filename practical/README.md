@@ -2,6 +2,19 @@
 
 `payments-intake` receives the webhooks of **Quetzal Pagos (Mexico)** and **Andina Pay (Colombia)** — the scope of Part B — plus **Austral Pagos (Chile)**, added to show that a new provider is only a new adapter (NFR9). It verifies each notification exactly as its provider specifies, translates it into the canonical event and publishes it, answering `2xx` only once the event is durably published. It implements the *intake* stage of [`SOLUTION_DESIGN.md`](../docs/design/SOLUTION_DESIGN.md); writing to Salesforce is out of scope.
 
+## Part B requirements at a glance
+
+| Requirement | Where it is implemented | Proven by |
+|---|---|---|
+| FR1 — verify each provider as specified | `QuetzalAdapter`, `AndinaAdapter`, `AustralAdapter`, `support/Hmac` | `*AdapterTest.Signature` |
+| FR2 — one canonical event | `adapter.toCanonical()`, `domain/PremiumPaymentEvent` | `*AdapterTest.Mapping`, `CanonicalEventContractTest` |
+| FR4 — exactly once in business terms | `IntakeService` + `IdempotencyStore` (claim with a lease) | `WebhookIntakeTest`, `InMemoryIdempotencyStoreTest` |
+| NFR3 — no accepted notification lost | `IntakeService`: `2xx` only after the event is published | `brokerOutage…`, `idempotencyStoreOutage…` |
+| NFR4 — answer within the provider timeout | `TimeLimitedEventPublisher`, `IntakeProperties` | `aHangingBroker…`, `IntakePropertiesTest` |
+| NFR6 — secrets and personal data | `SecretProvider` port, adapters never read payer fields | `personalDataNeverReachesTheLogs`, `CanonicalEventContractTest` |
+
+The full list of behaviours and tests is in [Behaviour](#behaviour-what-the-tests-prove).
+
 ## Stack and versions
 
 | Item | Version |
@@ -96,3 +109,4 @@ Stubs are only wired outside the `azure` profile and log a `WARN` at startup, so
 - Validation of the API Manager's machine-to-machine token (A-4) is assumed to be platform configuration and is not in the code.
 - OpenTelemetry trace propagation into Service Bus is described in `OPERATIONS.md`, not wired; the freshness metric belongs to the recorder, which is not built.
 - No load test; the capacity figures in the design are calculations.
+- Delivery is at-least-once: a publish that times out but still reaches the broker, or a failed "mark as published", can publish the same event twice. Consumers deduplicate on `idempotencyKey` (A-11); a transactional outbox would remove this.

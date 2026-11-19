@@ -8,17 +8,40 @@ param location string
 param tags object
 param addressPrefix string // e.g. 10.40.0.0/22
 
-// Default NSG rules are enough: VNet traffic in, nothing from the internet.
+// Default NSG rules: VNet traffic in, nothing from the internet.
+// Extra rule: no SSH/RDP out, so a compromised app cannot move to other hosts.
+var denyManagementOut = [
+  {
+    name: 'deny-ssh-rdp-out'
+    properties: {
+      priority: 4000
+      direction: 'Outbound'
+      access: 'Deny'
+      protocol: 'Tcp'
+      sourceAddressPrefix: '*'
+      sourcePortRange: '*'
+      destinationAddressPrefix: '*'
+      destinationPortRanges: ['22', '3389']
+    }
+  }
+]
+
 resource appsNsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
   name: 'nsg-${prefix}-apps'
   location: location
   tags: tags
+  properties: {
+    securityRules: denyManagementOut
+  }
 }
 
 resource endpointsNsg 'Microsoft.Network/networkSecurityGroups@2024-01-01' = {
   name: 'nsg-${prefix}-pe'
   location: location
   tags: tags
+  properties: {
+    securityRules: denyManagementOut
+  }
 }
 
 // Fixed egress IP: Salesforce can allow-list it for the integration user.
