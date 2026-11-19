@@ -1,6 +1,9 @@
 package com.meridian.payments.intake.adapter.in.web;
 
 import static com.meridian.payments.intake.TestFixtures.ANDINA_TEST_SECRET;
+import static com.meridian.payments.intake.TestFixtures.AUSTRAL_TEST_SECRET;
+import static com.meridian.payments.intake.TestFixtures.AU_CONFIRMED;
+import static com.meridian.payments.intake.TestFixtures.AU_REVERSED;
 import static com.meridian.payments.intake.TestFixtures.AN_APPROVED;
 import static com.meridian.payments.intake.TestFixtures.AN_APPROVED_RETRY;
 import static com.meridian.payments.intake.TestFixtures.AN_PENDING;
@@ -11,6 +14,7 @@ import static com.meridian.payments.intake.TestFixtures.QZ_SUCCEEDED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -55,7 +59,9 @@ import com.meridian.payments.intake.adapter.out.stub.InMemoryIdempotencyStore;
  */
 @SpringBootTest(properties = {
         "intake.secrets.quetzal-webhook=" + QUETZAL_TEST_SECRET,
-        "intake.secrets.andina-webhook=" + ANDINA_TEST_SECRET})
+        "intake.secrets.andina-webhook=" + ANDINA_TEST_SECRET,
+        "intake.secrets.austral-webhook=" + AUSTRAL_TEST_SECRET,
+        "intake.publish-timeout=500ms"})
 @AutoConfigureMockMvc
 @ExtendWith(OutputCaptureExtension.class)
 class WebhookIntakeTest {
@@ -73,6 +79,8 @@ class WebhookIntakeTest {
     private MockMvc mvc;
     @Autowired
     private MutableClock clock;
+    @Autowired
+    private io.micrometer.core.instrument.MeterRegistry meters;
     @MockitoSpyBean
     private InMemoryEventPublisher publisher;
     @MockitoSpyBean
@@ -82,6 +90,12 @@ class WebhookIntakeTest {
     void reset() {
         publisher.clear();
         store.clear();
+        meters.clear();
+    }
+
+    private double counter(String name, String... tags) {
+        var counter = meters.find(name).tags(tags).counter();
+        return counter == null ? 0 : counter.count();
     }
 
     private ResultActions send(String provider, Vector vector) throws Exception {
@@ -242,7 +256,45 @@ class WebhookIntakeTest {
 
     @Test
     void unknownProviderIsNotFound() throws Exception {
-        send("austral", QZ_SUCCEEDED.body(), QZ_SUCCEEDED.headers()).andExpect(status().isNotFound());
+        send("unknownpay", QZ_SUCCEEDED.body(), QZ_SUCCEEDED.headers()).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void chileIsServedByAThirdAdapterWithoutChangesToTheSharedFlow() throws Exception {
+        send("austral", AU_CONFIRMED).andExpect(status().isOk());
+        send("austral", AU_CONFIRMED).andExpect(status().isOk()); // at-least-once re-delivery, same eventId
+        send("austral", AU_REVERSED).andExpect(status().isOk());
+
+        assertThat(publisher.published())
+                .extracting(e -> e.data().country() + ":" + e.data().status())
+                .containsExactly("CL:CAPTURED", "CL:REFUNDED");
+    }
+
+    @Test
+    void metricsAreTaggedPerCountryAndOutcome() throws Exception {
+        send("andina", AN_APPROVED).andExpect(status().isOk());
+        send("andina", AN_APPROVED_RETRY).andExpect(status().isOk());
+        clock.set(Instant.EPOCH);
+        send("quetzal", QZ_SUCCEEDED.body(), QZ_SUCCEEDED.headers()).andExpect(status().isUnauthorized());
+
+        assertThat(counter("intake.accepted", "country", "CO", "outcome", "published")).isEqualTo(1);
+        assertThat(counter("intake.accepted", "country", "CO", "outcome", "duplicate")).isEqualTo(1);
+        assertThat(counter("intake.rejected", "country", "MX", "reason", "signature")).isEqualTo(1);
+    }
+
+    @Test
+    void aHangingBrokerIsAnsweredWith503BeforeTheProviderTimesOut() throws Exception {
+        doAnswer(invocation -> {
+            Thread.sleep(10_000);
+            return null;
+        }).when(publisher).publish(any());
+
+        long started = System.nanoTime();
+        send("andina", AN_APPROVED).andExpect(status().isServiceUnavailable());
+
+        // Andina gives up after 5 s; the configured publish timeout here is 500 ms.
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - started)).isLessThan(java.time.Duration.ofSeconds(3));
+        assertThat(counter("intake.rejected", "country", "CO", "reason", "dependency_unavailable")).isEqualTo(1);
     }
 
     @Test

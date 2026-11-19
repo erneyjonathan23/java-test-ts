@@ -29,6 +29,7 @@ public final class TestFixtures {
 
     public static final String QUETZAL_TEST_SECRET = "qz_test_whsec_4f8a1c2e9b7d";
     public static final String ANDINA_TEST_SECRET = "andina_test_secret_7c3e19ab";
+    public static final String AUSTRAL_TEST_SECRET = "aus_test_whsec_2b9d6f10";
 
     /** One sample with the headers published in the provider's test vector table. */
     public record Vector(String file, byte[] body, HttpHeaders headers, Instant signedAt) {
@@ -50,8 +51,14 @@ public final class TestFixtures {
     public static final Vector AN_REVERSED = andina("04-transaccion-reversada.json", "2026-12-03T09:15:42-05:00",
             "AfGO+MEffk0AWIEEE3cgyff4hWewoOaDhygCWxs/fNI=");
 
+    public static final Vector AU_CONFIRMED = austral("01-payment-confirmed.json", "2026-11-28T17:05:44Z",
+            "ec52aeac3cbb26dbb1650a46ea82fd44c38f99dd6705e7ab413b2704e1482357");
+    public static final Vector AU_REVERSED = austral("02-payment-reversed.json", "2026-11-30T12:41:09Z",
+            "e104a041f3f5fd9bd2bcf2dc746f919fd6f759caeedc450e5f1f247e009d9721");
+
     public static final List<Vector> ALL_QUETZAL = List.of(QZ_SUCCEEDED, QZ_FAILED, QZ_REFUNDED);
     public static final List<Vector> ALL_ANDINA = List.of(AN_PENDING, AN_APPROVED, AN_APPROVED_RETRY, AN_REVERSED);
+    public static final List<Vector> ALL_AUSTRAL = List.of(AU_CONFIRMED, AU_REVERSED);
 
     private TestFixtures() {
     }
@@ -62,6 +69,10 @@ public final class TestFixtures {
 
     public static java.util.stream.Stream<Vector> allAndina() {
         return ALL_ANDINA.stream();
+    }
+
+    public static java.util.stream.Stream<Vector> allAustral() {
+        return ALL_AUSTRAL.stream();
     }
 
     public static byte[] read(Path path) {
@@ -84,6 +95,19 @@ public final class TestFixtures {
         headers.add("X-Andina-Signature", signature);
         return new Vector(file, read(PROVIDERS.resolve("andina-co/samples/" + file)), headers,
                 OffsetDateTime.parse(timestamp).toInstant());
+    }
+
+    private static Vector austral(String file, String sentAt, String signature) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Austral-Signature", signature);
+        return new Vector(file, read(PROVIDERS.resolve("austral-cl/samples/" + file)), headers, Instant.parse(sentAt));
+    }
+
+    /** Signs an arbitrary body the way Austral does (for crafted test cases). */
+    public static HttpHeaders australHeaders(byte[] body, String secret) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Austral-Signature", HexFormat.of().formatHex(Hmac.sha256(secret, body)));
+        return headers;
     }
 
     /** Signs an arbitrary body the way Quetzal does (for crafted test cases). */

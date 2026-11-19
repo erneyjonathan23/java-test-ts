@@ -21,6 +21,7 @@ import com.meridian.payments.intake.TestFixtures;
 import com.meridian.payments.intake.TestFixtures.Vector;
 import com.meridian.payments.intake.application.spi.ProviderAdapter;
 import com.meridian.payments.intake.adapter.in.provider.andina.AndinaAdapter;
+import com.meridian.payments.intake.adapter.in.provider.austral.AustralAdapter;
 import com.meridian.payments.intake.adapter.in.provider.quetzal.QuetzalAdapter;
 import com.meridian.payments.intake.domain.PolicyReferenceNormalizer;
 import com.networknt.schema.JsonSchema;
@@ -39,7 +40,7 @@ class CanonicalEventContractTest {
     private static final List<String> PERSONAL_DATA = List.of(
             "maria.lopez@example.com", "jorge.ramirez@example.com",
             "Laura", "Gómez", "1020304050", "laura.gomez@example.com",
-            "tok_qz_");
+            "tok_qz_", "Camila", "Rojas", "11.111.111-1", "camila.rojas@example.com");
 
     private static final ObjectMapper MAPPER = JsonMapper.builder()
             .addModule(new JavaTimeModule())
@@ -55,10 +56,15 @@ class CanonicalEventContractTest {
     private static final ProviderAdapter ANDINA = new AndinaAdapter(
             TestFixtures.secrets("unused"), new ObjectMapper(), new PolicyReferenceNormalizer());
 
+    private static final ProviderAdapter AUSTRAL = new AustralAdapter(
+            TestFixtures.secrets("unused"), new ObjectMapper(), new PolicyReferenceNormalizer());
+
     static Stream<Arguments> samples() {
-        return Stream.concat(
+        return Stream.of(
                 TestFixtures.ALL_QUETZAL.stream().map(v -> Arguments.of(v.file(), QUETZAL, v)),
-                TestFixtures.ALL_ANDINA.stream().map(v -> Arguments.of(v.file(), ANDINA, v)));
+                TestFixtures.ALL_ANDINA.stream().map(v -> Arguments.of(v.file(), ANDINA, v)),
+                TestFixtures.ALL_AUSTRAL.stream().map(v -> Arguments.of(v.file(), AUSTRAL, v)))
+                .flatMap(s -> s);
     }
 
     @ParameterizedTest(name = "{0}")

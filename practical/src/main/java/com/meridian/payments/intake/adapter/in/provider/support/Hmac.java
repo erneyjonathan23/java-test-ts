@@ -28,6 +28,17 @@ public final class Hmac {
         }
     }
 
+    /** HMAC-SHA256 of the raw body alone (providers that do not sign a timestamp, e.g. Austral). */
+    public static byte[] sha256(String secret, byte[] rawBody) {
+        try {
+            Mac mac = Mac.getInstance(ALGORITHM);
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), ALGORITHM));
+            return mac.doFinal(rawBody);
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("HmacSHA256 not available", e);
+        }
+    }
+
     /** Constant-time comparison: does not leak how many leading bytes match. */
     public static boolean constantTimeEquals(byte[] expected, byte[] actual) {
         return MessageDigest.isEqual(expected, actual);
