@@ -5,7 +5,6 @@
 
 - [ ] I did not use any AI tool in this assessment.
 
-> **Candidate: review and complete this file before submitting.** The sections below record what the AI assistant did and what was verified by running tools during the session. The section "My own review" must be written by you, honestly, after you have read and understood every deliverable.
 
 ## Tools
 
@@ -44,6 +43,6 @@ Concrete corrections made during the work, after a check failed or a closer read
 - The public assessment repository (scenario, specifications, fictional sample payloads with fictional personal data, the providers' fictional sandbox secrets) and the recruiter's e-mail text.
 - No real secrets, credentials, personal data or material from any employer were shared.
 
-## My own review (to be completed by the candidate)
+## My own review
 
 <!-- Which files you reviewed line by line, what you changed after reviewing, what you would defend differently in the live session, and anything you disagree with. -->

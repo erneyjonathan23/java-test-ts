@@ -6,7 +6,7 @@
 
 | Field | Value |
 |---|---|
-| Candidate ID (provided by your recruiter) | <!-- your e-mail address, as the recruiter asked --> |
+| Candidate ID (provided by your recruiter) | erneyjonathan@gmail.com |
 | Final commit SHA | <!-- SHA of the last commit, the same one you send to the recruiter --> |
 | Date and time of submission (with time zone) | <!-- e.g. 2026-11-21 18:00 UTC−5 --> |
 

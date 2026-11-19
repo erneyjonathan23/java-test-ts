@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.meridian.payments.intake.application.DeliveryInProgressException;
 import com.meridian.payments.intake.application.UnknownProviderException;
 import com.meridian.payments.intake.application.port.out.PublishException;
 import com.meridian.payments.intake.application.port.out.StoreUnavailableException;
@@ -54,6 +55,12 @@ public class ProblemHandler {
     @ExceptionHandler(UnknownProviderException.class)
     ProblemDetail unknownProvider(UnknownProviderException e) {
         return problem(HttpStatus.NOT_FOUND, "Not found");
+    }
+
+    @ExceptionHandler(DeliveryInProgressException.class)
+    ProblemDetail inProgress(DeliveryInProgressException e) {
+        log.info("notification not accepted: same event is being published by a concurrent delivery");
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "Temporarily unavailable, retry later");
     }
 
     @ExceptionHandler({PublishException.class, StoreUnavailableException.class, SecretUnavailableException.class})

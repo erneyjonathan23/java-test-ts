@@ -10,7 +10,7 @@ public interface IntakeMetrics {
 
     enum Outcome { PUBLISHED, DUPLICATE }
 
-    enum Rejection { SIGNATURE, MALFORMED, UNSUPPORTED, DEPENDENCY_UNAVAILABLE }
+    enum Rejection { SIGNATURE, MALFORMED, UNSUPPORTED, IN_PROGRESS, DEPENDENCY_UNAVAILABLE }
 
     void accepted(String provider, String country, Outcome outcome, Duration elapsed);
 

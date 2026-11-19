@@ -205,8 +205,39 @@ class WebhookIntakeTest {
     }
 
     @Test
+    void concurrentDeliveriesOfTheSameEventPublishItOnce() throws Exception {
+        // Andina sends a retry while the first delivery is still publishing (slow broker).
+        java.util.concurrent.CountDownLatch publishing = new java.util.concurrent.CountDownLatch(1);
+        doAnswer(invocation -> {
+            publishing.countDown();
+            Thread.sleep(300);
+            return invocation.callRealMethod();
+        }).when(publisher).publish(any());
+        clock.set(AN_APPROVED_RETRY.signedAt());
+
+        var first = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            try {
+                return send("andina", AN_APPROVED.body(), AN_APPROVED.headers()).andReturn().getResponse().getStatus();
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        assertThat(publishing.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+
+        send("andina", AN_APPROVED_RETRY.body(), AN_APPROVED_RETRY.headers())
+                .andExpect(status().isServiceUnavailable()); // not accepted: the provider retries later
+        assertThat(first.get(5, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(200);
+
+        doCallRealMethod().when(publisher).publish(any());
+        send("andina", AN_APPROVED_RETRY.body(), AN_APPROVED_RETRY.headers()).andExpect(status().isOk());
+
+        assertThat(publisher.published()).hasSize(1);
+        assertThat(counter("intake.rejected", "country", "CO", "reason", "in_progress")).isEqualTo(1);
+    }
+
+    @Test
     void idempotencyStoreOutageIsNotAccepted() throws Exception {
-        doThrow(new StoreUnavailableException("SQL unavailable", null)).when(store).claim(any());
+        doThrow(new StoreUnavailableException("SQL unavailable", null)).when(store).claim(any(), any());
 
         send("quetzal", QZ_SUCCEEDED).andExpect(status().isServiceUnavailable());
 

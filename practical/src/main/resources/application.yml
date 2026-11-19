@@ -22,6 +22,8 @@ intake:
   max-body-bytes: 65536
   # Hard limit for publishing an event; must stay below the strictest provider timeout (Andina 5 s).
   publish-timeout: 3s
+  # Lease on an event while one delivery publishes it; longer than publish-timeout.
+  claim-lease: 10s
   # Secrets are NEVER written here. Locally they come from environment variables
   # (INTAKE_SECRETS_QUETZAL_WEBHOOK, INTAKE_SECRETS_ANDINA_WEBHOOK, comma-separated: current,next);
   # in Azure from Key Vault through the managed identity.

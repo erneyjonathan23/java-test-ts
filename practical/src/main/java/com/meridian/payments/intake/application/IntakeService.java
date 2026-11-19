@@ -18,9 +18,6 @@ import com.meridian.payments.intake.application.port.out.IdempotencyStore.ClaimR
 import com.meridian.payments.intake.application.port.out.IntakeMetrics;
 import com.meridian.payments.intake.application.port.out.IntakeMetrics.Outcome;
 import com.meridian.payments.intake.application.port.out.IntakeMetrics.Rejection;
-import com.meridian.payments.intake.application.port.out.PublishException;
-import com.meridian.payments.intake.application.port.out.SecretUnavailableException;
-import com.meridian.payments.intake.application.port.out.StoreUnavailableException;
 import com.meridian.payments.intake.application.spi.ProviderAdapter;
 import com.meridian.payments.intake.domain.MalformedNotificationException;
 import com.meridian.payments.intake.domain.PremiumPaymentData;
@@ -77,7 +74,12 @@ public class IntakeService {
         PremiumPaymentData data = adapter.toCanonical(rawBody);
         PremiumPaymentEvent event = PremiumPaymentEvent.wrap(data, adapter.id(), now, correlationId);
 
-        ClaimResult claim = idempotencyStore.claim(event);
+        ClaimResult claim = idempotencyStore.claim(event, now);
+        if (claim == ClaimResult.IN_FLIGHT) {
+            // A concurrent delivery of the same event is publishing it: let the provider retry instead of
+            // publishing twice in parallel.
+            throw new DeliveryInProgressException(data.idempotencyKey());
+        }
         if (claim == ClaimResult.ALREADY_PUBLISHED) {
             recordAttempt(event, AttemptOutcome.DUPLICATE);
             log.info("notification acknowledged as duplicate provider={} providerEventId={} idempotencyKey={}",
@@ -85,7 +87,12 @@ public class IntakeService {
             return Outcome.DUPLICATE;
         }
 
-        publisher.publish(event);
+        try {
+            publisher.publish(event);
+        } catch (RuntimeException e) {
+            releaseQuietly(data.idempotencyKey());
+            throw e;
+        }
 
         // From here the event is durably published, so the notification is accepted even if the
         // bookkeeping below fails: the worst case is one extra publication on a later retry,
@@ -104,6 +111,15 @@ public class IntakeService {
         return Outcome.PUBLISHED;
     }
 
+    private void releaseQuietly(String idempotencyKey) {
+        try {
+            idempotencyStore.release(idempotencyKey);
+        } catch (RuntimeException e) {
+            // The lease expires on its own; the provider's retry is only delayed, never lost.
+            log.warn("could not release claim idempotencyKey={} error={}", idempotencyKey, e.getClass().getSimpleName());
+        }
+    }
+
     private void recordAttempt(PremiumPaymentEvent event, AttemptOutcome outcome) {
         try {
             idempotencyStore.recordAttempt(event, outcome);
@@ -119,9 +135,8 @@ public class IntakeService {
             case SignatureVerificationException ignored -> Rejection.SIGNATURE;
             case MalformedNotificationException ignored -> Rejection.MALFORMED;
             case UnsupportedNotificationException ignored -> Rejection.UNSUPPORTED;
-            case PublishException ignored -> Rejection.DEPENDENCY_UNAVAILABLE;
-            case StoreUnavailableException ignored -> Rejection.DEPENDENCY_UNAVAILABLE;
-            case SecretUnavailableException ignored -> Rejection.DEPENDENCY_UNAVAILABLE;
+            case DeliveryInProgressException ignored -> Rejection.IN_PROGRESS;
+            // Broker, store or Key Vault unavailable, or anything unexpected: not accepted, the provider retries.
             default -> Rejection.DEPENDENCY_UNAVAILABLE;
         };
     }

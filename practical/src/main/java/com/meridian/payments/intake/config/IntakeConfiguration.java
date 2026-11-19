@@ -90,9 +90,9 @@ public class IntakeConfiguration {
         }
 
         @Bean
-        InMemoryIdempotencyStore idempotencyStore() {
+        InMemoryIdempotencyStore idempotencyStore(@Value("${intake.claim-lease:10s}") Duration lease) {
             log.warn("Using STUB in-memory idempotency store (no Azure SQL)");
-            return new InMemoryIdempotencyStore();
+            return new InMemoryIdempotencyStore(lease);
         }
 
         @Bean
