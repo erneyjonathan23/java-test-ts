@@ -18,7 +18,7 @@
 What was verified by **executing** something, not by reading AI output:
 
 - **Provider test vectors**: all 9 signatures in `reference/providers/*` were recomputed with an independent Python script (standard `hmac`/`hashlib`) before writing any Java. This revealed that the vectors only match with LF line endings: a Windows checkout converts the samples to CRLF and every signature fails. Fixed with `.gitattributes` (`reference/** -text`).
-- **Part B**: `./mvnw test` runs 77 JUnit tests, all passing (Java 21.0.13, Spring Boot 3.3.5). They use the providers' samples and vectors byte for byte, and every canonical event produced from the samples is validated against `premium-payment.schema.json` by an independent JSON Schema validator (networknt). One test checks that no personal data from the samples appears in the application logs.
+- **Part B**: `./mvnw test` runs 99 tests, all passing (Java 21.0.13, Spring Boot 3.5.16). They use the providers' samples and vectors byte for byte, and every canonical event produced from the samples is validated against `premium-payment.schema.json` by an independent JSON Schema validator (networknt). One test checks that no personal data from the samples appears in the application logs. The ArchUnit rules were checked to fail by temporarily adding a Spring annotation to the use case (then reverted).
 - **Part C**: `az bicep lint` (0 warnings), `az bicep build` and `az bicep build-params` for dev/test/prod pass (Bicep 0.49.2). Nothing was deployed.
 - Capacity numbers in the design were recomputed by hand from NFR1 and `API_CONSTRAINTS.md`.
 - INC-0412 analysis was cross-checked against the incident data (e.g. 43,120 `400` responses = 4,312 dead-lettered messages × 10 deliveries; first DLQ message 41 minutes after Andina 2.3 took effect).
@@ -32,6 +32,9 @@ Concrete corrections made during the work, after a check failed or a closer read
 - **Leader election with a blob lease** for the Salesforce sync — replaced with an Azure SQL application lock (`sp_getapplock`), which removes a storage account and its role assignments.
 - **KEDA scale rule with managed identity** failed Bicep validation on API version `2024-03-01`; moved to `2025-01-01`, where the property exists.
 - **JUnit `@FieldSource`** is not available in the JUnit version shipped with Spring Boot 3.3; replaced with `@MethodSource`.
+- **Spring Boot 3.3.5** (first version used) is out of open-source support; upgraded to 3.5.16 after checking Maven Central. Spring Boot 4 was considered and deferred (Jackson 3 migration, no benefit for this deliverable).
+- The first version was "ports and adapters" in spirit but the use case depended on Spring's `HttpHeaders` and `@Service`; restructured into explicit `domain` / `application` / `adapter` packages with framework-free inner layers and ArchUnit rules.
+- An integration test used `austral` as the "unknown provider" example; it became a real provider and the test was changed.
 - A generated test used `Set.of(...)` with duplicate elements and failed at runtime; corrected.
 - Shell heredocs failed to write some Java files on Windows; files were rewritten with the editor tool and recompiled.
 - Rejected a "default to `Pending` for unknown states" mapping (it is one of the PR-214 findings): unknown states are rejected with `422` and alerted.

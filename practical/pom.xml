@@ -15,7 +15,7 @@
     <artifactId>payments-intake</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <name>payments-intake</name>
-    <description>Intake of premium payment notifications (Quetzal MX, Andina CO) into canonical events</description>
+    <description>Intake of premium payment notifications (Quetzal MX, Andina CO, Austral CL) into canonical events</description>
 
     <properties>
         <java.version>21</java.version>

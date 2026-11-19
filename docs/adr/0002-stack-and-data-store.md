@@ -46,7 +46,7 @@ Forces:
 
 ## Decision
 
-- **Runtime: Java 21 + Spring Boot 3.3 on Azure Container Apps**, three deployables: `payments-intake`, `payments-recorder` (includes the leader-elected Salesforce sync) and `payments-ops`. All three are published or reached through the API Manager, so the "no point-to-point" rule holds. Provider logic is a `ProviderAdapter` implementation per provider, discovered by Spring; adding a country = new adapter + secret + route, no change to the shared flow (NFR9).
+- **Runtime: Java 21 + Spring Boot 3.5 on Azure Container Apps**, three deployables: `payments-intake`, `payments-recorder` (includes the leader-elected Salesforce sync) and `payments-ops`. All three are published or reached through the API Manager, so the "no point-to-point" rule holds. The code follows a hexagonal (ports and adapters) structure enforced by ArchUnit: framework-free domain and use case, provider logic as one `ProviderAdapter` implementation per provider, discovered by Spring; adding a country = new adapter + secret + route, no change to the shared flow (NFR9).
 - **Store: Azure SQL Database**, General Purpose serverless (min 0.5, max 4 vCores, auto-pause disabled in prod), Entra-only authentication, private endpoint, zone redundancy in prod.
 
 MuleSoft remains the right tool for the API Manager layer and for other squads' system APIs; if the company mandates Mule for runtime logic, the adapters' contract (verify → map → idempotency key) ports one-to-one to Mule flows with a Java module for HMAC.

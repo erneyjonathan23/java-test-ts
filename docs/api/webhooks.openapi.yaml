@@ -14,8 +14,7 @@ info:
       64 KB body limit and per-provider rate limits, and attaches an IdP machine-to-machine token
       when forwarding to the intake (not visible to providers).
 
-    Chile (Austral Pagos, `POST /webhooks/austral`) follows the same pattern and is designed in
-    `docs/design/SOLUTION_DESIGN.md`; it is not part of this version of the contract.
+    Chile (Austral Pagos) is included to show that a new provider is only a new adapter (NFR9).
   contact:
     name: Payments Integration squad
 servers:
@@ -26,6 +25,7 @@ servers:
 tags:
   - name: Mexico
   - name: Colombia
+  - name: Chile
 paths:
   /webhooks/quetzal:
     post:
@@ -88,6 +88,37 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AndinaNotification'
+      responses:
+        '200': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/Malformed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '413': { $ref: '#/components/responses/TooLarge' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /webhooks/austral:
+    post:
+      tags: [Chile]
+      operationId: receiveAustralNotification
+      summary: Austral Pagos (CL) payment event
+      description: |
+        Signature: `X-Austral-Signature` = lowercase hex HMAC-SHA256 of the raw body (no timestamp is signed).
+        Retries carry the same `eventId` and body: duplicates are acknowledged with `200` and not re-published,
+        which also neutralises replays. Must be answered with a `2xx` within 10 s.
+      parameters:
+        - name: X-Austral-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{64}$'
+          example: ec52aeac3cbb26dbb1650a46ea82fd44c38f99dd6705e7ab413b2704e1482357
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AustralEvent'
       responses:
         '200': { $ref: '#/components/responses/Accepted' }
         '400': { $ref: '#/components/responses/Malformed' }
@@ -200,5 +231,25 @@ components:
             motivo_reverso: { type: string }
             canal: { type: string, enum: [WEB, APP, OFICINA] }
             pagador:
+              type: object
+              description: Personal data. Read only to be discarded; never stored, logged or published.
+    AustralEvent:
+      type: object
+      description: Austral Pagos event. Unknown fields are ignored.
+      required: [eventId, eventType, sentAt, payment]
+      properties:
+        eventId: { type: string, example: aus_ev_93f0c1d2 }
+        eventType: { type: string, enum: [PAYMENT_CONFIRMED, PAYMENT_REJECTED, PAYMENT_REVERSED] }
+        sentAt: { type: string, format: date-time }
+        payment:
+          type: object
+          required: [paymentId, amount, currency, policyNumber, occurredAt]
+          properties:
+            paymentId: { type: string, example: AUS-P-77120 }
+            amount: { type: string, pattern: '^\d+$', description: 'CLP has no minor unit: "45990" = CLP 45,990' }
+            currency: { type: string, example: CLP }
+            policyNumber: { type: string, example: POL-CL-000093311 }
+            occurredAt: { type: string, format: date-time }
+            payer:
               type: object
               description: Personal data. Read only to be discarded; never stored, logged or published.
