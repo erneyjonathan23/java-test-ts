@@ -32,7 +32,7 @@
 ## Where to start reading
 
 1. [`docs/design/SOLUTION_DESIGN.md`](docs/design/SOLUTION_DESIGN.md): the end-to-end design. Sections 5 (idempotency and ordering) and 7 (capacity against the Salesforce budget) carry the key decisions.
-2. [`practical/README.md`](practical/README.md) (architecture and what the tests prove), then the adapters in `practical/src/main/java/.../adapter/in/provider/` and [`WebhookIntakeTest`](practical/src/test/java/com/meridian/payments/intake/web/WebhookIntakeTest.java): what the tests prove (signatures with the providers' vectors, exactly-once publication, no loss, no personal data in logs).
+2. [`practical/README.md`](practical/README.md) (architecture and what the tests prove), then the adapters in `practical/src/main/java/.../adapter/in/provider/` and [`WebhookIntakeTest`](practical/src/test/java/com/meridian/payments/intake/adapter/in/web/WebhookIntakeTest.java): what the tests prove (signatures with the providers' vectors, exactly-once publication, no loss, no personal data in logs).
 3. [`docs/operations/INC-0412-RESPONSE.md`](docs/operations/INC-0412-RESPONSE.md) and [`pr-review/REVIEW.md`](pr-review/REVIEW.md).
 
 ## Known gaps and what I would do next
